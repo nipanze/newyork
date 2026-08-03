@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nipanze Dashboard",
-  description: "Admin control console for the Nipanze lending & forex marketplace.",
+  title: "newyork",
+  description: "Admin control console for the marketplace.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

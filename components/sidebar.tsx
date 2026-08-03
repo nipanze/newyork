@@ -37,7 +37,7 @@ export function Sidebar() {
           N
         </div>
         <div>
-          <p className="text-sm font-semibold leading-none">Nipanze</p>
+          <p className="text-sm font-semibold leading-none">newyork</p>
           <p className="text-[10px] uppercase tracking-wider text-ink-500">Control dashboard</p>
         </div>
       </div>

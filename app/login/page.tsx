@@ -47,7 +47,7 @@ function LoginForm() {
 
     if (!profile?.is_admin) {
       await supabase.auth.signOut();
-      setError("This account does not have admin access to Nipanze Dashboard.");
+      setError("This account does not have admin access to newyork.");
       setLoading(false);
       return;
     }
@@ -62,8 +62,8 @@ function LoginForm() {
         <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-amber-signal text-sm font-bold text-ink-950">
           N
         </div>
-        <CardTitle className="text-lg">Sign in to Nipanze Dashboard</CardTitle>
-        <CardDescription>Admin access only — same account as the Nipanze mobile app.</CardDescription>
+        <CardTitle className="text-lg">Sign in to newyork</CardTitle>
+        <CardDescription>Admin access only.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
