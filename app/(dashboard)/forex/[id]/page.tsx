@@ -16,23 +16,30 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
     (supabase as any).from("forex_requests").select("*").eq("id", id).single(),
     (supabase as any)
       .from("forex_offers")
-      .select("id, offerer_id, offered_rate, offered_amount, status, offered_at")
+      .select("*")
       .eq("request_id", id)
       .order("offered_at", { ascending: false }),
   ]);
 
   if (!request) notFound();
 
-  const { data: owner } = await (supabase as any)
-    .from("profiles")
-    .select("id, full_name, country")
-    .eq("id", request.user_id)
-    .single();
+  const requesterId = request.requester_id ?? request.user_id;
+  const { data: owner } = requesterId
+    ? await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, country")
+        .eq("id", requesterId)
+        .single()
+    : { data: null };
+
+  const fromCurr = request.currency_held ?? request.from_currency ?? "—";
+  const toCurr = request.currency_needed ?? request.to_currency ?? "—";
+  const rate = request.preferred_rate ?? request.exchange_rate;
 
   return (
     <>
       <Header
-        title={`${request.from_currency} → ${request.to_currency}`}
+        title={`${fromCurr} → ${toCurr}`}
         description={`${request.country} · ${request.status}`}
       />
       <main className="flex-1 space-y-6 overflow-y-auto p-6">
@@ -42,12 +49,12 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
               <CardTitle>Request details</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4 pt-0 text-sm">
-              <Field label="From" value={request.from_currency} />
-              <Field label="To" value={request.to_currency} />
-              <Field label="Amount" value={formatAmount(request.amount, request.from_currency)} />
+              <Field label="From" value={fromCurr} />
+              <Field label="To" value={toCurr} />
+              <Field label="Amount" value={formatAmount(request.amount, fromCurr)} />
               <Field
                 label="Desired rate"
-                value={request.exchange_rate != null ? Number(request.exchange_rate).toFixed(4) : "—"}
+                value={rate != null ? Number(rate).toFixed(4) : "—"}
               />
               <Field label="Market" value={request.country} />
               <Field label="Status" value={<Badge variant="neutral">{request.status}</Badge>} />
@@ -78,20 +85,25 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
           </CardHeader>
           <CardContent className="space-y-2 pt-0">
             {offers?.length ? (
-              offers.map((offer: any) => (
-                <div
-                  key={offer.id}
-                  className="flex items-center justify-between rounded-md border border-paper-200 px-3 py-2.5 text-sm"
-                >
-                  <span className="font-tabular text-ink-900">
-                    {formatAmount(offer.offered_amount, undefined)} @ {Number(offer.offered_rate).toFixed(4)}
-                  </span>
-                  <span className="text-ink-500">{formatDateTime(offer.offered_at)}</span>
-                  <Badge variant={offer.status === "accepted" ? "confirm" : "neutral"}>
-                    {offer.status}
-                  </Badge>
-                </div>
-              ))
+              offers.map((offer: any) => {
+                const offerAmt = offer.amount_available ?? offer.offered_amount;
+                const offerRate = offer.rate_offered ?? offer.offered_rate;
+
+                return (
+                  <div
+                    key={offer.id}
+                    className="flex items-center justify-between rounded-md border border-paper-200 px-3 py-2.5 text-sm"
+                  >
+                    <span className="font-tabular text-ink-900">
+                      {formatAmount(offerAmt, undefined)} @ {offerRate != null ? Number(offerRate).toFixed(4) : "—"}
+                    </span>
+                    <span className="text-ink-500">{formatDateTime(offer.offered_at)}</span>
+                    <Badge variant={offer.status === "accepted" ? "confirm" : "neutral"}>
+                      {offer.status}
+                    </Badge>
+                  </div>
+                );
+              })
             ) : (
               <p className="text-sm text-ink-500">No offers on this listing yet.</p>
             )}
@@ -110,3 +122,4 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+

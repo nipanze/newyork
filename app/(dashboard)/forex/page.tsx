@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatAmount, formatDate } from "@/lib/utils";
+import { MarketStatusFilter } from "@/components/market-status-filter";
 import { ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
 
@@ -33,10 +34,10 @@ export default async function ForexPage({
   const { country, status } = await searchParams;
   const supabase = await createClient();
 
-  // Query defensively — falls back cleanly if the table hasn't been migrated yet.
+  // Query defensively using correct schema from patch_schema_v6.sql
   let query = (supabase as any)
     .from("forex_requests")
-    .select("id, country, from_currency, to_currency, amount, exchange_rate, status, listed_at, expires_at, number_of_offers")
+    .select("id, country, currency_held, currency_needed, amount, preferred_rate, status, listed_at, expires_at, number_of_offers")
     .order("listed_at", { ascending: false })
     .limit(100);
 
@@ -77,36 +78,7 @@ export default async function ForexPage({
     <>
       <Header title="Forex" description="Peer-to-peer currency exchange requests" />
       <main className="flex-1 space-y-4 overflow-y-auto p-6">
-        <form method="GET" className="flex flex-wrap gap-2">
-          <select
-            name="country"
-            defaultValue={country ?? ""}
-            className="h-9 rounded-md border border-paper-300 bg-white px-3 text-sm shadow-sm"
-            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-          >
-            <option value="">All markets</option>
-            {countries?.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            name="status"
-            defaultValue={status ?? ""}
-            className="h-9 rounded-md border border-paper-300 bg-white px-3 text-sm shadow-sm"
-            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-          >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="contracted">Contracted</option>
-            <option value="expired">Expired</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <button type="submit" className="h-9 rounded-md bg-ink-900 px-4 text-sm font-medium text-paper-50">
-            Filter
-          </button>
-        </form>
+        <MarketStatusFilter countries={countries} currentCountry={country} currentStatus={status} />
 
         <Table>
           <TableHeader>
@@ -122,37 +94,43 @@ export default async function ForexPage({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {requests?.map((req: any) => (
-              <TableRow key={req.id}>
-                <TableCell>
-                  <p className="font-medium text-ink-900">
-                    {req.from_currency} → {req.to_currency}
-                  </p>
-                </TableCell>
-                <TableCell>{req.country}</TableCell>
-                <TableCell className="font-tabular">
-                  {formatAmount(req.amount, req.from_currency)}
-                </TableCell>
-                <TableCell className="font-tabular">
-                  {req.exchange_rate != null ? Number(req.exchange_rate).toFixed(4) : "—"}
-                </TableCell>
-                <TableCell>{req.number_of_offers ?? 0}</TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[req.status as ForexStatus] ?? "neutral"}>
-                    {req.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-ink-500">{formatDate(req.listed_at)}</TableCell>
-                <TableCell className="text-right">
-                  <Link
-                    href={`/forex/${req.id}`}
-                    className="text-xs font-medium text-ink-700 hover:underline"
-                  >
-                    View
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
+            {requests?.map((req: any) => {
+              const fromCurr = req.currency_held ?? req.from_currency ?? "—";
+              const toCurr = req.currency_needed ?? req.to_currency ?? "—";
+              const rate = req.preferred_rate ?? req.exchange_rate;
+
+              return (
+                <TableRow key={req.id}>
+                  <TableCell>
+                    <p className="font-medium text-ink-900">
+                      {fromCurr} → {toCurr}
+                    </p>
+                  </TableCell>
+                  <TableCell>{req.country}</TableCell>
+                  <TableCell className="font-tabular">
+                    {formatAmount(req.amount, fromCurr)}
+                  </TableCell>
+                  <TableCell className="font-tabular">
+                    {rate != null ? Number(rate).toFixed(4) : "—"}
+                  </TableCell>
+                  <TableCell>{req.number_of_offers ?? 0}</TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANT[req.status as ForexStatus] ?? "neutral"}>
+                      {req.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-ink-500">{formatDate(req.listed_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={`/forex/${req.id}`}
+                      className="text-xs font-medium text-ink-700 hover:underline"
+                    >
+                      View
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {!requests?.length && (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-sm text-ink-500">
@@ -166,3 +144,4 @@ export default async function ForexPage({
     </>
   );
 }
+
