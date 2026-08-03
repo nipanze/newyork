@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/*
+  Nipanze Dashboard — design tokens
+  Signature: a "control ledger" feel — a dark instrument-panel sidebar
+  (deep slate/ink) next to a warm paper-white workspace, with a signal-amber
+  accent used only for attention states (pending review, closing soon) and
+  a deep teal for confirmed/active states. Numeric and currency values are
+  always set in DM Mono, matching the tabular-figure convention already
+  used in the Flutter app — the dashboard should feel like the same
+  instrument, not a different product wearing the same logo.
+*/
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-ink-950: #0e1116;
+  --color-ink-900: #14181f;
+  --color-ink-800: #1c212b;
+  --color-ink-700: #2a303c;
+  --color-ink-600: #3c4453;
+  --color-ink-500: #5b6577;
+
+  --color-paper-50: #fafaf8;
+  --color-paper-100: #f2f1ec;
+  --color-paper-200: #e7e5dc;
+  --color-paper-300: #d7d4c6;
+
+  --color-amber-signal: #e8a33d;
+  --color-amber-signal-soft: #f6e3c4;
+
+  --color-teal-confirm: #1c6b5e;
+  --color-teal-confirm-soft: #d8ebe6;
+
+  --color-clay-alert: #b5452f;
+  --color-clay-alert-soft: #f4dcd6;
+
+  --radius-card: 0.625rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-paper-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+}
+
+.font-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: var(--color-amber-signal-soft);
+}
+
+/* Thin scrollbars for the dense data views */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
