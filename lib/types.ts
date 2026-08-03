@@ -15,7 +15,7 @@ export type LoanStatus = "active" | "contracted" | "expired" | "cancelled";
 export type OfferStatus = "pending" | "accepted" | "rejected" | "withdrawn" | "expired";
 export type TransactionStatus = "pending" | "successful" | "failed" | "reversed";
 
-export interface Profile {
+export type Profile = {
   id: string;
   full_name: string | null;
   phone: string | null;
@@ -31,9 +31,9 @@ export interface Profile {
   free_unlocks_remaining: number;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface Subscription {
+export type Subscription = {
   id: string;
   user_id: string;
   plan: SubscriptionPlan;
@@ -42,9 +42,9 @@ export interface Subscription {
   expires_at: string | null;
   amount_minor_units: number;
   auto_renew: boolean;
-}
+};
 
-export interface KycVerification {
+export type KycVerification = {
   id: string;
   user_id: string;
   status: KycStatus;
@@ -61,9 +61,9 @@ export interface KycVerification {
   submitted_at: string | null;
   reviewed_at: string | null;
   expires_at: string | null;
-}
+};
 
-export interface Country {
+export type Country = {
   code: string;
   name: string;
   currency_code: string;
@@ -71,9 +71,9 @@ export interface Country {
   is_active: boolean;
   /** v6.0 field — present once the forex migration has run. */
   forex_enabled?: boolean;
-}
+};
 
-export interface LoanRequest {
+export type LoanRequest = {
   id: string;
   borrower_id: string;
   country: string;
@@ -91,9 +91,9 @@ export interface LoanRequest {
   expires_at: string | null;
   contracted_at: string | null;
   suggested_interest_rate_pct: number | null;
-}
+};
 
-export interface LoanOffer {
+export type LoanOffer = {
   id: string;
   request_id: string;
   lender_id: string;
@@ -105,9 +105,9 @@ export interface LoanOffer {
   status: OfferStatus;
   offered_at: string;
   accepted_at: string | null;
-}
+};
 
-export interface Transaction {
+export type Transaction = {
   id: string;
   user_id: string;
   type: "subscription" | "contact_unlock";
@@ -120,9 +120,9 @@ export interface Transaction {
   status: TransactionStatus;
   webhook_verified_at: string | null;
   created_at: string;
-}
+};
 
-export interface AuditLog {
+export type AuditLog = {
   id: string;
   user_id: string | null;
   event_type: string;
@@ -130,11 +130,13 @@ export interface AuditLog {
   entity_id: string | null;
   action: string | null;
   description: string | null;
-  ip_address: string | null;
+  previous_values?: Record<string, unknown> | null;
+  new_values?: Record<string, unknown> | null;
+  ip_address?: string | null;
   created_at: string;
-}
+};
 
-export interface SystemSetting {
+export type SystemSetting = {
   setting_id: string;
   setting_key: string;
   country: string | null;
@@ -143,9 +145,9 @@ export interface SystemSetting {
   category: string | null;
   description: string | null;
   is_public: boolean;
-}
+};
 
-export interface TrustProfilePublic {
+export type TrustProfilePublic = {
   user_id: string;
   rating_avg: number | null;
   review_count: number;
@@ -154,27 +156,6 @@ export interface TrustProfilePublic {
   phone_verified: boolean;
   response_time_bucket: string | null;
   is_verified: boolean;
-}
-
-// Minimal Supabase Database generic — enough for the typed client without
-// hand-maintaining every Row/Insert/Update permutation. Swap for the
-// generated types (see comment above) when you want full type safety on
-// inserts/updates too.
-export type Database = {
-  public: {
-    Tables: {
-      profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> };
-      subscriptions: { Row: Subscription; Insert: Partial<Subscription>; Update: Partial<Subscription> };
-      kyc_verifications: { Row: KycVerification; Insert: Partial<KycVerification>; Update: Partial<KycVerification> };
-      countries: { Row: Country; Insert: Partial<Country>; Update: Partial<Country> };
-      loan_requests: { Row: LoanRequest; Insert: Partial<LoanRequest>; Update: Partial<LoanRequest> };
-      loan_offers: { Row: LoanOffer; Insert: Partial<LoanOffer>; Update: Partial<LoanOffer> };
-      transactions: { Row: Transaction; Insert: Partial<Transaction>; Update: Partial<Transaction> };
-      audit_logs: { Row: AuditLog; Insert: Partial<AuditLog>; Update: Partial<AuditLog> };
-      system_settings: { Row: SystemSetting; Insert: Partial<SystemSetting>; Update: Partial<SystemSetting> };
-    };
-    Views: {
-      v_trust_profile_public: { Row: TrustProfilePublic };
-    };
-  };
 };
+
+export type Database = any;

@@ -11,15 +11,16 @@ import {
 } from "@/components/ui/table";
 import { formatDate, initials } from "@/lib/utils";
 import Link from "next/link";
+import type { AccountStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_VARIANT = {
+const STATUS_VARIANT: Record<AccountStatus, "confirm" | "signal" | "alert" | "neutral"> = {
   active: "confirm",
   pending_verification: "signal",
   suspended: "alert",
   deactivated: "neutral",
-} as const;
+};
 
 export default async function UsersPage({
   searchParams,
@@ -90,7 +91,7 @@ export default async function UsersPage({
                 <TableCell>{p.country}</TableCell>
                 <TableCell className="capitalize">{planByUser.get(p.id) ?? "free"}</TableCell>
                 <TableCell>
-                  <Badge variant={STATUS_VARIANT[p.account_status]}>{p.account_status}</Badge>
+                  <Badge variant={STATUS_VARIANT[p.account_status as AccountStatus]}>{p.account_status}</Badge>
                 </TableCell>
                 <TableCell className="text-ink-500">{formatDate(p.created_at)}</TableCell>
                 <TableCell className="text-right">

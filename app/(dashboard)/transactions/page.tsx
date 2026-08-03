@@ -61,7 +61,7 @@ export default async function TransactionsPage() {
                   <TableCell>{tx.country}</TableCell>
                   <TableCell className="capitalize">{tx.provider}</TableCell>
                   <TableCell>
-                    <Badge variant={STATUS_VARIANT[tx.status]}>{tx.status}</Badge>
+                    <Badge variant={STATUS_VARIANT[tx.status as TransactionStatus]}>{tx.status}</Badge>
                   </TableCell>
                   <TableCell className="text-ink-500">{formatDateTime(tx.created_at)}</TableCell>
                 </TableRow>

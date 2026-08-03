@@ -100,7 +100,7 @@ export default async function LoansPage({
                 </TableCell>
                 <TableCell>{loan.number_of_offers}</TableCell>
                 <TableCell>
-                  <Badge variant={STATUS_VARIANT[loan.status]}>{loan.status}</Badge>
+                  <Badge variant={STATUS_VARIANT[loan.status as LoanStatus]}>{loan.status}</Badge>
                 </TableCell>
                 <TableCell className="text-ink-500">{formatDate(loan.listed_at)}</TableCell>
                 <TableCell className="text-right">
