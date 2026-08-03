@@ -46,11 +46,12 @@ export default async function LoansPage({
     <>
       <Header title="Loans" description="Every loan listing across every active market" />
       <main className="flex-1 space-y-4 overflow-y-auto p-6">
-        <form className="flex flex-wrap gap-2">
+        <form method="GET" className="flex flex-wrap gap-2">
           <select
             name="country"
             defaultValue={country ?? ""}
             className="h-9 rounded-md border border-paper-300 bg-white px-3 text-sm shadow-sm"
+            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
           >
             <option value="">All markets</option>
             {countries?.map((c) => (
@@ -63,6 +64,7 @@ export default async function LoansPage({
             name="status"
             defaultValue={status ?? ""}
             className="h-9 rounded-md border border-paper-300 bg-white px-3 text-sm shadow-sm"
+            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -70,7 +72,7 @@ export default async function LoansPage({
             <option value="expired">Expired</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <button className="h-9 rounded-md bg-ink-900 px-4 text-sm font-medium text-paper-50">
+          <button type="submit" className="h-9 rounded-md bg-ink-900 px-4 text-sm font-medium text-paper-50">
             Filter
           </button>
         </form>

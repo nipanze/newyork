@@ -65,6 +65,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <AccountActions
                 userId={profile.id}
                 currentStatus={profile.account_status}
+                currentPlan={subscription?.plan ?? "free"}
                 isAdmin={profile.is_admin}
               />
             </CardContent>
