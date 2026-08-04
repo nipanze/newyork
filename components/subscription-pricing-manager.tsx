@@ -43,12 +43,19 @@ export function SubscriptionPricingManager({
     SO: { lender: 3000, pro: 7500 },
   };
 
-  const filteredCountries = countries.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.currency_code.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCountries = [...countries]
+    .filter(
+      (c) =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.code.toLowerCase().includes(search.toLowerCase()) ||
+        c.currency_code.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <Card className="border-paper-300 shadow-sm">

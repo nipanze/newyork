@@ -13,6 +13,7 @@ export default async function CountriesPage() {
     supabase
       .from("countries")
       .select("code, name, currency_code, phone_prefix, is_active, forex_enabled")
+      .order("is_active", { ascending: false })
       .order("code"),
     supabase
       .from("subscription_prices")
