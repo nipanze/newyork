@@ -19,22 +19,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const supabaseAdmin = createAdminClient();
 
-  // Mark any existing active subscription as cancelled
-  await supabaseAdmin
+  // Check if a subscription record already exists for this user
+  const { data: existingSub } = await supabaseAdmin
     .from("subscriptions")
-    .update({ status: "cancelled" })
+    .select("id")
     .eq("user_id", userId)
-    .eq("status", "active");
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  // Insert new active subscription
-  const { error } = await supabaseAdmin.from("subscriptions").insert({
-    user_id: userId,
-    plan: plan as SubscriptionPlan,
-    status: "active",
-    started_at: new Date().toISOString(),
-    amount_minor_units: 0,
-    auto_renew: true,
-  });
+  let error;
+  if (existingSub) {
+    // Update existing subscription row
+    const { error: updateErr } = await supabaseAdmin
+      .from("subscriptions")
+      .update({
+        plan: plan as SubscriptionPlan,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingSub.id);
+    error = updateErr;
+  } else {
+    // Insert new active subscription if none exists
+    const { error: insertErr } = await supabaseAdmin.from("subscriptions").insert({
+      user_id: userId,
+      plan: plan as SubscriptionPlan,
+      status: "active",
+      started_at: new Date().toISOString(),
+      amount_minor_units: 0,
+      auto_renew: true,
+    });
+    error = insertErr;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

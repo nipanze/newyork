@@ -37,8 +37,13 @@ CREATE TRIGGER trg_subscription_prices_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION public.update_subscription_prices_updated_at();
 
--- RLS Policies
+-- RLS Policies & Grants
 ALTER TABLE public.subscription_prices ENABLE ROW LEVEL SECURITY;
+
+-- Grants
+GRANT ALL ON TABLE public.subscription_prices TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.subscription_prices TO authenticated;
+GRANT SELECT ON TABLE public.subscription_prices TO anon;
 
 DROP POLICY IF EXISTS "subscription_prices: public read" ON public.subscription_prices;
 CREATE POLICY "subscription_prices: public read"
