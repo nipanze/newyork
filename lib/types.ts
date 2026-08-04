@@ -73,6 +73,17 @@ export type Country = {
   forex_enabled?: boolean;
 };
 
+export type SubscriptionPrice = {
+  id: string;
+  country_code: string;
+  currency_code: string;
+  plan: "lender" | "pro";
+  price_amount: number;
+  price_minor_units: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type LoanRequest = {
   id: string;
   borrower_id: string;
