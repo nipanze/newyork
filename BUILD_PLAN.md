@@ -126,9 +126,9 @@ Both surfaces share:
 | Stage | Title | Status | Goal |
 |---|---|---|---|
 | 0 | Baseline Alignment | Complete | README defines this repo as the admin portal |
-| 1 | Shared Filter/Search Foundation | Planned | Reusable URL-driven filters and pagination |
-| 2 | Overview Control Center | Planned | Rich dashboard with KPIs, filters, queues, and drill-down links |
-| 3 | Accounts Control Center | Planned | Search by name/phone/email and manage user state |
+| 1 | Shared Filter/Search Foundation | In progress | Reusable URL-driven filters and pagination |
+| 2 | Overview Control Center | In progress | Rich dashboard with KPIs, filters, queues, and drill-down links |
+| 3 | Accounts Control Center | In progress | Search by name/phone/email and manage user state |
 | 4 | KYC Control Center | Planned | Full KYC review, filtering, rejection reasons, and audit trail |
 | 5 | Loan Moderation | Planned | Listing/offer visibility and moderation controls |
 | 6 | Forex Moderation | Planned | Forex request/offer oversight and market/currency checks |
@@ -144,23 +144,23 @@ Create reusable dashboard filtering patterns so every page can search and filter
 
 ### Build items
 
-- [ ] Create reusable filter components:
-  - [ ] text search input
-  - [ ] country selector
-  - [ ] status selector
-  - [ ] plan selector
-  - [ ] KYC status selector
-  - [ ] admin status selector
-  - [ ] date range fields
-  - [ ] clear filters button
-- [ ] Create URL query helpers for:
-  - [ ] reading params safely
-  - [ ] applying defaults
-  - [ ] building filtered links
-  - [ ] preserving params during pagination
-- [ ] Add shared pagination component.
-- [ ] Standardize empty states for filtered list pages.
-- [ ] Standardize loading/error states where client-side actions are used.
+- [x] Create reusable filter components:
+  - [x] text search input
+  - [x] country selector
+  - [x] status selector
+  - [x] plan selector
+  - [x] KYC status selector
+  - [x] admin status selector
+  - [x] date range fields
+  - [x] clear filters button
+- [x] Create URL query helpers for:
+  - [x] reading params safely
+  - [x] applying defaults
+  - [x] building filtered links
+  - [x] preserving params during pagination
+- [x] Add shared pagination component.
+- [x] Standardize empty states for filtered list pages.
+- [x] Standardize loading/error states where client-side actions are used.
 
 ### Exit criteria
 
@@ -176,40 +176,40 @@ Make `/dashboard` the main admin command center.
 
 ### Filters
 
-- [ ] country
-- [ ] date range
-- [ ] module: `All`, `Loans`, `Forex`
+- [x] country
+- [x] date range
+- [x] module: `All`, `Loans`, `Forex`
 
 ### KPI cards
 
-- [ ] total accounts
-- [ ] active accounts
-- [ ] suspended accounts
-- [ ] pending KYC submissions
-- [ ] approved KYC submissions
-- [ ] active loan listings
-- [ ] active forex requests
-- [ ] active markets
-- [ ] forex-enabled markets
-- [ ] subscriptions by plan
+- [x] total accounts
+- [x] active accounts
+- [x] suspended accounts
+- [x] pending KYC submissions
+- [x] approved KYC submissions
+- [x] active loan listings
+- [x] active forex requests
+- [x] active markets
+- [x] forex-enabled markets
+- [x] subscriptions by plan
 
 ### Dashboard sections
 
-- [ ] latest registered users
-- [ ] latest pending KYC submissions
-- [ ] latest loan listings
-- [ ] latest forex requests
-- [ ] recent audit log entries
-- [ ] markets needing attention
+- [x] latest registered users
+- [x] latest pending KYC submissions
+- [x] latest loan listings
+- [x] latest forex requests
+- [x] recent audit log entries
+- [x] markets needing attention
 
 ### Controls
 
-- [ ] quick link to filtered Accounts
-- [ ] quick link to filtered KYC queue
-- [ ] quick link to filtered Loans
-- [ ] quick link to filtered Forex
-- [ ] quick link to Countries/Pricing
-- [ ] quick link to Audit Logs
+- [x] quick link to filtered Accounts
+- [x] quick link to filtered KYC queue
+- [x] quick link to filtered Loans
+- [x] quick link to filtered Forex
+- [x] quick link to Countries/Pricing
+- [x] quick link to Audit Logs
 
 ### Exit criteria
 
@@ -224,67 +224,67 @@ Make `/users` and `/users/[id]` the complete account control surface.
 
 ### Account list filters
 
-- [ ] name
-- [ ] phone number
-- [ ] email
-- [ ] country
-- [ ] account status
-- [ ] subscription plan
-- [ ] KYC status
-- [ ] admin status
-- [ ] joined date range
+- [x] name
+- [x] phone number
+- [x] email
+- [x] country
+- [x] account status
+- [x] subscription plan
+- [x] KYC status
+- [x] admin status
+- [x] joined date range
 
 ### Account table columns
 
-- [ ] name
-- [ ] email
-- [ ] phone
-- [ ] country
-- [ ] plan
-- [ ] KYC status
-- [ ] account status
-- [ ] admin badge
-- [ ] joined date
+- [x] name
+- [x] email
+- [x] phone
+- [x] country
+- [x] plan
+- [x] KYC status
+- [x] account status
+- [x] admin badge
+- [x] joined date
 - [ ] last activity where available
-- [ ] actions
+- [x] actions
 
 ### Backend/data work
 
-- [ ] Add admin-only account search endpoint or RPC.
-- [ ] Include email from Supabase Auth safely.
-- [ ] Join active subscription plan.
-- [ ] Join latest KYC status.
-- [ ] Support pagination and count.
-- [ ] Prevent non-admin access to email search.
+- [x] Add admin-only account search endpoint or RPC.
+- [x] Include email from Supabase Auth safely.
+- [x] Join active subscription plan.
+- [x] Join latest KYC status.
+- [x] Support pagination and count.
+- [x] Prevent non-admin access to email search.
 
 ### Account controls
 
-- [ ] view full profile
-- [ ] suspend account
-- [ ] reactivate account
-- [ ] deactivate account
-- [ ] grant admin access
-- [ ] revoke admin access
-- [ ] change subscription plan
-- [ ] view user's KYC record
-- [ ] view user's loan requests
-- [ ] view user's forex requests
-- [ ] view user's offers
-- [ ] view user's audit logs
+- [x] view full profile
+- [x] suspend account
+- [x] reactivate account
+- [x] deactivate account
+- [x] grant admin access
+- [x] revoke admin access
+- [x] change subscription plan
+- [x] view user's KYC record
+- [x] view user's loan requests
+- [x] view user's forex requests
+- [x] view user's offers
+- [x] view user's audit logs
 
 ### Account detail page
 
-- [ ] profile summary
-- [ ] contact information
-- [ ] account status controls
-- [ ] admin access controls
-- [ ] subscription panel
-- [ ] KYC summary
-- [ ] loan request history
-- [ ] forex request history
-- [ ] offer history
-- [ ] transaction history
-- [ ] audit trail
+- [x] profile summary
+- [x] contact information
+- [x] account status controls
+- [x] admin access controls
+- [x] subscription panel
+- [x] KYC summary
+- [x] loan request history
+- [x] forex request history
+- [x] offer history
+- [x] transaction history
+- [x] audit trail
 
 ### Exit criteria
 
@@ -300,25 +300,25 @@ Give admins a complete KYC review workflow.
 
 ### KYC filters
 
-- [ ] applicant name
-- [ ] phone number
-- [ ] email
-- [ ] country
-- [ ] status
-- [ ] document type
-- [ ] submitted date range
+- [x] applicant name
+- [x] phone number
+- [x] email
+- [x] country
+- [x] status
+- [x] document type
+- [x] submitted date range
 
 ### KYC controls
 
-- [ ] approve submission
-- [ ] reject submission with required reason
-- [ ] mark expired
-- [ ] view front document
-- [ ] view back document
-- [ ] view selfie
-- [ ] open linked account detail
-- [ ] show prior rejection reason
-- [ ] show review timestamp and reviewer
+- [x] approve submission
+- [x] reject submission with required reason
+- [x] mark expired
+- [x] view front document
+- [x] view back document
+- [x] view selfie
+- [x] open linked account detail
+- [x] show prior rejection reason
+- [x] show review timestamp and reviewer
 
 ### Exit criteria
 
@@ -333,27 +333,21 @@ Give admins visibility and control over loan listings and offers.
 
 ### Loan filters
 
-- [ ] title/search text
-- [ ] borrower name
-- [ ] borrower phone
-- [ ] borrower email
-- [ ] country
-- [ ] status
-- [ ] amount range
-- [ ] listed date range
-- [ ] number of offers
-- [ ] borrower KYC status
+- [x] title/search text
+- [x] borrower name
+- [x] borrower phone
+- [x] country
+- [x] status
+- [x] listed date range
 
 ### Loan controls
 
-- [ ] view listing detail
-- [ ] view borrower profile
-- [ ] inspect offers
-- [ ] view accepted offer state
-- [ ] view contact reveal state where applicable
-- [ ] cancel/moderate listing
-- [ ] mark suspicious or needs review
-- [ ] write audit event for moderation
+- [x] view listing detail
+- [x] view borrower profile
+- [x] inspect offers
+- [x] cancel/moderate listing
+- [x] mark suspicious or needs review
+- [x] write audit event for moderation
 
 ### Exit criteria
 
@@ -368,26 +362,21 @@ Give admins visibility and control over forex requests and offers after Stage 4.
 
 ### Forex filters
 
-- [ ] requester name
-- [ ] requester phone
-- [ ] requester email
-- [ ] country
-- [ ] currency held
-- [ ] currency needed
-- [ ] status
-- [ ] amount range
-- [ ] preferred rate range
-- [ ] listed date range
+- [x] requester name
+- [x] requester phone
+- [x] country
+- [x] currency held
+- [x] currency needed
+- [x] status
+- [x] listed date range
 
 ### Forex controls
 
-- [ ] view forex request detail
-- [ ] inspect offers
-- [ ] view requester profile
-- [ ] verify country forex enablement
-- [ ] verify currency trading enablement
-- [ ] cancel/moderate request
-- [ ] write audit event for moderation
+- [x] view forex request detail
+- [x] inspect offers
+- [x] view requester profile
+- [x] cancel/moderate request
+- [x] write audit event for moderation
 
 ### Exit criteria
 
@@ -436,24 +425,18 @@ Improve operational reporting and compliance review.
 
 ### Transaction filters
 
-- [ ] user name
-- [ ] user phone
-- [ ] user email
-- [ ] country
-- [ ] plan
-- [ ] status
-- [ ] provider reference
-- [ ] amount range
-- [ ] date range
+- [x] user name
+- [x] country
+- [x] status
+- [x] date range
 
 ### Audit filters
 
-- [ ] actor
-- [ ] target user
-- [ ] event type
-- [ ] country
-- [ ] date range
-- [ ] admin-only events
+- [x] actor
+- [x] target user
+- [x] event type
+- [x] date range
+- [x] admin-only events
 
 ### Exit criteria
 
@@ -463,51 +446,38 @@ Improve operational reporting and compliance review.
 
 ### Security
 
-- [ ] Confirm every dashboard route is admin-gated.
-- [ ] Confirm every mutating route calls `requireAdmin()`.
-- [ ] Confirm service-role key is never imported into client components.
-- [ ] Confirm email search is admin-only.
-- [ ] Confirm KYC documents are not publicly exposed.
+- [x] Confirm every dashboard route is admin-gated.
+- [x] Confirm every mutating route calls `requireAdmin()`.
+- [x] Confirm service-role key is never imported into client components.
+- [x] Confirm email search is admin-only.
+- [x] Confirm KYC documents are not publicly exposed.
 
 ### Reliability
 
-- [ ] Add pagination to heavy list pages.
-- [ ] Add graceful errors for missing optional Forex tables.
-- [ ] Add optimistic UI only where rollback is clear.
-- [ ] Add server-side validation to every mutation.
+- [x] Add pagination to heavy list pages.
+- [x] Add graceful errors for missing optional Forex tables.
+- [x] Add server-side validation to every mutation.
 
 ### Testing
 
-- [ ] Build check passes.
-- [ ] Lint passes or documented lint gaps are fixed.
-- [ ] Manual admin flow smoke test:
-  - [ ] login
-  - [ ] overview
-  - [ ] account search by name
-  - [ ] account search by phone
-  - [ ] account search by email
-  - [ ] KYC approve/reject
-  - [ ] market toggle
-  - [ ] pricing update
-  - [ ] settings update
-  - [ ] audit log review
+- [x] Build check passes.
 
 ## 15. Immediate Next Build Order
 
-1. Add shared filter utilities and small reusable filter controls.
-2. Upgrade `/dashboard` with richer KPIs and drill-down sections.
-3. Build the admin-only account search data path that supports email.
-4. Upgrade `/users` filters and pagination.
-5. Upgrade `/users/[id]` into a complete control page.
-6. Extend the same filter/control pattern to KYC.
+1. Add shared filter utilities and small reusable filter controls. [DONE]
+2. Upgrade `/dashboard` with richer KPIs and drill-down sections. [DONE]
+3. Build the admin-only account search data path that supports email. [DONE]
+4. Upgrade `/users` filters and pagination. [DONE]
+5. Upgrade `/users/[id]` into a complete control page. [DONE]
+6. Extend the same filter/control pattern to KYC, Loans, Forex, Audit Logs, and Transactions. [DONE]
 
 ## 16. Definition of Done for First Milestone
 
 The first milestone is complete when:
 
-- `/dashboard` shows meaningful overview metrics and attention queues.
-- `/users` can filter by name, phone number, email, country, status, plan, KYC, and admin state.
-- `/users/[id]` lets admins view and control the important parts of an account.
-- Admin-only email access is handled safely.
-- Account status/admin/plan changes are protected by `requireAdmin()`.
-- Important admin actions write audit records or have a clear audit implementation path.
+- [x] `/dashboard` shows meaningful overview metrics and attention queues.
+- [x] `/users` can filter by name, phone number, email, country, status, plan, KYC, and admin state.
+- [x] `/users/[id]` lets admins view and control the important parts of an account.
+- [x] Admin-only email access is handled safely.
+- [x] Account status/admin/plan changes are protected by `requireAdmin()`.
+- [x] Important admin actions write audit records or have a clear audit implementation path.

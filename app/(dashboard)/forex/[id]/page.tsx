@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatAmount, formatDateTime } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ForexModerationActions } from "@/components/forex-moderation-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -65,16 +66,21 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
 
           <Card>
             <CardHeader>
-              <CardTitle>Owner</CardTitle>
+              <CardTitle>Owner & Actions</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 text-sm">
-              {owner ? (
-                <Link href={`/users/${owner.id}`} className="font-medium text-ink-900 hover:underline">
-                  {owner.full_name ?? owner.id}
-                </Link>
-              ) : (
-                "—"
-              )}
+            <CardContent className="space-y-4 pt-0 text-sm">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Owner</p>
+                {owner ? (
+                  <Link href={`/users/${owner.id}`} className="font-medium text-ink-900 hover:underline">
+                    {owner.full_name ?? owner.id}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+              </div>
+
+              <ForexModerationActions requestId={request.id} currentStatus={request.status} />
             </CardContent>
           </Card>
         </div>

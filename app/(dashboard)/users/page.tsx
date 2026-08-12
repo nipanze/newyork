@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
+import { AdminFilterForm } from "@/components/admin-filter-form";
+import { Pagination } from "@/components/pagination";
 import {
   Table,
   TableBody,
@@ -12,6 +14,13 @@ import {
 import { formatDate, initials } from "@/lib/utils";
 import Link from "next/link";
 import type { AccountStatus } from "@/lib/types";
+import {
+  getPage,
+  getPageSize,
+  getParam,
+  type DashboardSearchParams,
+} from "@/lib/dashboard-filters";
+import { searchAdminAccounts } from "@/lib/admin/account-search";
 
 export const dynamic = "force-dynamic";
 
@@ -25,56 +34,119 @@ const STATUS_VARIANT: Record<AccountStatus, "confirm" | "signal" | "alert" | "ne
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; country?: string }>;
+  searchParams: Promise<DashboardSearchParams>;
 }) {
-  const { q, country } = await searchParams;
+  const params = await searchParams;
   const supabase = await createClient();
+  const page = getPage(params);
+  const pageSize = getPageSize(params);
 
-  let query = supabase
-    .from("profiles")
-    .select("id, full_name, phone, country, account_status, is_admin, created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (country) query = query.eq("country", country);
-  if (q) query = query.ilike("full_name", `%${q}%`);
-
-  const [{ data: profiles }, { data: subs }] = await Promise.all([
-    query,
-    supabase.from("subscriptions").select("user_id, plan, status").eq("status", "active"),
+  const [{ data: countries }, accountResults] = await Promise.all([
+    supabase.from("countries").select("code, name").order("code"),
+    searchAdminAccounts({
+      q: getParam(params, "q"),
+      name: getParam(params, "name"),
+      phone: getParam(params, "phone"),
+      email: getParam(params, "email"),
+      country: getParam(params, "country"),
+      accountStatus: getParam(params, "accountStatus"),
+      plan: getParam(params, "plan"),
+      kycStatus: getParam(params, "kycStatus"),
+      admin: getParam(params, "admin"),
+      joinedFrom: getParam(params, "joinedFrom"),
+      joinedTo: getParam(params, "joinedTo"),
+      page,
+      pageSize,
+    }),
   ]);
 
-  const planByUser = new Map((subs ?? []).map((s) => [s.user_id, s.plan]));
+  const countryOptions = [
+    { label: "All countries", value: "" },
+    ...((countries ?? []).map((country) => ({
+      label: `${country.name} (${country.code})`,
+      value: country.code,
+    })) ?? []),
+  ];
 
   return (
     <>
       <Header title="Accounts" description="Every registered user across every market" />
       <main className="flex-1 space-y-4 overflow-y-auto p-6">
-        <form className="flex gap-2">
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Search by name…"
-            className="h-9 w-64 rounded-md border border-paper-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ink-700"
-          />
-          <button className="h-9 rounded-md bg-ink-900 px-4 text-sm font-medium text-paper-50">
-            Search
-          </button>
-        </form>
+        <AdminFilterForm
+          resetHref="/users"
+          searchParams={params}
+          fields={[
+            { name: "q", label: "Quick search", placeholder: "Name, phone, or email" },
+            { name: "name", label: "Name", placeholder: "Full name" },
+            { name: "phone", label: "Phone", placeholder: "+256..." },
+            { name: "email", label: "Email", placeholder: "name@example.com" },
+            { name: "country", label: "Country", type: "select", options: countryOptions },
+            {
+              name: "accountStatus",
+              label: "Account status",
+              type: "select",
+              options: [
+                { label: "All statuses", value: "" },
+                { label: "Active", value: "active" },
+                { label: "Pending verification", value: "pending_verification" },
+                { label: "Suspended", value: "suspended" },
+                { label: "Deactivated", value: "deactivated" },
+              ],
+            },
+            {
+              name: "plan",
+              label: "Plan",
+              type: "select",
+              options: [
+                { label: "All plans", value: "" },
+                { label: "Free", value: "free" },
+                { label: "Lender", value: "lender" },
+                { label: "Pro", value: "pro" },
+              ],
+            },
+            {
+              name: "kycStatus",
+              label: "KYC status",
+              type: "select",
+              options: [
+                { label: "All KYC", value: "" },
+                { label: "Not submitted", value: "not_submitted" },
+                { label: "Pending", value: "pending" },
+                { label: "Approved", value: "approved" },
+                { label: "Rejected", value: "rejected" },
+                { label: "Expired", value: "expired" },
+              ],
+            },
+            {
+              name: "admin",
+              label: "Admin",
+              type: "select",
+              options: [
+                { label: "All accounts", value: "" },
+                { label: "Admins only", value: "yes" },
+                { label: "Non-admins", value: "no" },
+              ],
+            },
+            { name: "joinedFrom", label: "Joined from", type: "date" },
+            { name: "joinedTo", label: "Joined to", type: "date" },
+          ]}
+        />
 
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Account</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Country</TableHead>
               <TableHead>Plan</TableHead>
+              <TableHead>KYC</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles?.map((p) => (
+            {accountResults.rows.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -88,8 +160,14 @@ export default async function UsersPage({
                     {p.is_admin ? <Badge variant="outline">admin</Badge> : null}
                   </div>
                 </TableCell>
+                <TableCell className="text-ink-600">{p.email ?? "—"}</TableCell>
                 <TableCell>{p.country}</TableCell>
-                <TableCell className="capitalize">{planByUser.get(p.id) ?? "free"}</TableCell>
+                <TableCell className="capitalize">{p.plan}</TableCell>
+                <TableCell>
+                  <Badge variant={p.kyc_status === "approved" ? "confirm" : p.kyc_status === "pending" ? "signal" : "neutral"}>
+                    {p.kyc_status.replace("_", " ")}
+                  </Badge>
+                </TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[p.account_status as AccountStatus]}>{p.account_status}</Badge>
                 </TableCell>
@@ -101,15 +179,22 @@ export default async function UsersPage({
                 </TableCell>
               </TableRow>
             ))}
-            {!profiles?.length && (
+            {!accountResults.rows.length && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-sm text-ink-500">
+                <TableCell colSpan={8} className="py-10 text-center text-sm text-ink-500">
                   No accounts match this filter.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={accountResults.total}
+          searchParams={params}
+          basePath="/users"
+        />
       </main>
     </>
   );

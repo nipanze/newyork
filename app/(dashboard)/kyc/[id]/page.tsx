@@ -102,8 +102,8 @@ export default async function KycDetailPage({ params }: { params: Promise<{ id: 
           </CardContent>
         </Card>
 
-        {/* Actions (only if pending) */}
-        {kyc.status === "pending" && (
+        {/* Actions — shown for pending (full review) and approved (expire only) */}
+        {(kyc.status === "pending" || kyc.status === "approved") && (
           <Card>
             <CardHeader>
               <CardTitle>Review decision</CardTitle>

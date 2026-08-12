@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatAmount, formatDateTime } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { LoanModerationActions } from "@/components/loan-moderation-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,17 +56,22 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
 
           <Card>
             <CardHeader>
-              <CardTitle>Owner</CardTitle>
+              <CardTitle>Owner & Actions</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 text-sm">
-              {borrower ? (
-                <Link href={`/users/${borrower.id}`} className="font-medium text-ink-900 hover:underline">
-                  {borrower.full_name ?? borrower.id}
-                </Link>
-              ) : (
-                "—"
-              )}
-              <p className="mt-1 text-xs text-ink-500">Contact details stay hidden until a contract unlocks — this console never surfaces them either.</p>
+            <CardContent className="space-y-4 pt-0 text-sm">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Owner</p>
+                {borrower ? (
+                  <Link href={`/users/${borrower.id}`} className="font-medium text-ink-900 hover:underline">
+                    {borrower.full_name ?? borrower.id}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+                <p className="mt-1 text-xs text-ink-500">Contact details stay hidden until a contract unlocks.</p>
+              </div>
+
+              <LoanModerationActions loanId={loan.id} currentStatus={loan.status} />
             </CardContent>
           </Card>
         </div>

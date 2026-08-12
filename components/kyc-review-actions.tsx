@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 
 export function KycReviewActions({ kycId }: { kycId: string }) {
   const router = useRouter();
-  const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
+  const [loading, setLoading] = useState<"approve" | "reject" | "expire" | null>(null);
   const [reason, setReason] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(decision: "approve" | "reject") {
+  async function submit(decision: "approve" | "reject" | "expire") {
     setLoading(decision);
     setError(null);
     const res = await fetch(`/api/admin/kyc/${kycId}`, {
@@ -34,7 +34,7 @@ export function KycReviewActions({ kycId }: { kycId: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="confirm" disabled={!!loading} onClick={() => submit("approve")}>
           {loading === "approve" ? "Approving…" : "Approve"}
         </Button>
@@ -45,6 +45,14 @@ export function KycReviewActions({ kycId }: { kycId: string }) {
           onClick={() => (showReject ? submit("reject") : setShowReject(true))}
         >
           {loading === "reject" ? "Rejecting…" : showReject ? "Confirm reject" : "Reject"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!!loading}
+          onClick={() => submit("expire")}
+        >
+          {loading === "expire" ? "Marking…" : "Mark expired"}
         </Button>
       </div>
       {showReject && (
@@ -59,3 +67,4 @@ export function KycReviewActions({ kycId }: { kycId: string }) {
     </div>
   );
 }
+

@@ -9,12 +9,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
   const { decision, rejection_reason } = body as {
-    decision?: "approve" | "reject";
+    decision?: "approve" | "reject" | "expire";
     rejection_reason?: string;
   };
 
-  if (decision !== "approve" && decision !== "reject") {
-    return NextResponse.json({ error: "decision must be 'approve' or 'reject'." }, { status: 400 });
+  if (decision !== "approve" && decision !== "reject" && decision !== "expire") {
+    return NextResponse.json({ error: "decision must be 'approve', 'reject', or 'expire'." }, { status: 400 });
   }
 
   const supabaseAdmin = createAdminClient();
@@ -29,8 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "KYC record not found." }, { status: 404 });
   }
 
-  // kyc_validity_months default is 12 (see system_settings seed) — mirrors
-  // the same window the mobile app assumes on approval.
+  const newStatus = decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "expired";
   const expiresAt =
     decision === "approve"
       ? new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString()
@@ -39,7 +38,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { error } = await supabaseAdmin
     .from("kyc_verifications")
     .update({
-      status: decision === "approve" ? "approved" : "rejected",
+      status: newStatus,
       id_verified: decision === "approve",
       selfie_verified: decision === "approve",
       verified_by: admin.user.id,
@@ -55,7 +54,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   await supabaseAdmin.from("audit_logs").insert({
     user_id: admin.user.id,
-    event_type: decision === "approve" ? "kyc_approved" : "kyc_rejected",
+    event_type: decision === "approve" ? "kyc_approved" : decision === "reject" ? "kyc_rejected" : "kyc_expired",
     entity_type: "kyc_verifications",
     entity_id: id,
     action: `dashboard_${decision}_kyc`,
