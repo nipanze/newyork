@@ -35,11 +35,18 @@ export function KycDocumentViewer({
 
   const resolveUrl = (rawUrl: string) => {
     if (!rawUrl) return "";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lqfpeookpjtbiuhlhjut.supabase.co";
+
+    // If URL uses the mock domain storage.nipanze.ug, extract the path after /kyc/
+    if (rawUrl.includes("storage.nipanze.ug/kyc/")) {
+      const path = rawUrl.split("storage.nipanze.ug/kyc/")[1];
+      return `${supabaseUrl}/storage/v1/object/public/verification-documents/${path}`;
+    }
+
     if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
       return rawUrl;
     }
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    return `${supabaseUrl}/storage/v1/object/public/kyc-documents/${rawUrl.replace(/^\//, "")}`;
+    return `${supabaseUrl}/storage/v1/object/public/verification-documents/${rawUrl.replace(/^\//, "")}`;
   };
 
   return (
