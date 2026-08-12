@@ -226,35 +226,23 @@ SET search_path = public
 AS $$
 DECLARE
     v_country TEXT;
-    v_phone TEXT;
 BEGIN
     v_country := UPPER(COALESCE(NEW.raw_user_meta_data->>'country_code', 'UG'));
     IF NOT EXISTS (SELECT 1 FROM public.countries WHERE code = v_country) THEN
         v_country := 'UG';
     END IF;
 
-    v_phone := COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone);
-
     INSERT INTO public.profiles (
-        id, full_name, phone, account_status, is_admin, country
+        id, full_name, account_status, is_admin, country
     )
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1)),
-        v_phone,
         'pending_verification',
         FALSE,
         v_country
     )
-    ON CONFLICT (id) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        phone = COALESCE(EXCLUDED.phone, public.profiles.phone),
-        country = COALESCE(EXCLUDED.country, public.profiles.country);
-
-    -- Auto confirm mock email users for phone sign ups
-    IF NEW.email LIKE '%@nipanze.test' AND NEW.email_confirmed_at IS NULL THEN
-        UPDATE auth.users SET email_confirmed_at = NOW() WHERE id = NEW.id;
-    END IF;
+    ON CONFLICT (id) DO NOTHING;
 
     -- Every new user gets a free subscription (can browse marketplace and post requests)
     INSERT INTO public.subscriptions (user_id, plan, status, amount_minor_units)
@@ -387,8 +375,6 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, category,
     ('listing_duration_days',   '7',        'number',  'marketplace', 'Days a loan request stays listed before expiry',       TRUE),
     ('kyc_validity_months',     '12',       'number',  'compliance',  'Months until KYC expires and re-verification required', TRUE),
     ('platform_currency',       'UGX',      'string',  'general',     'Fallback/global-default operating currency (each market''s actual currency comes from countries.currency_code)', TRUE),
-    ('market_interest_rate_baseline_pct', '10.0', 'number', 'marketplace', 'Global default market baseline interest rate percentage, controlled by admin.', TRUE),
-    ('market_late_payment_rate_baseline_pct', '5.0', 'number', 'marketplace', 'Global default market baseline late-payment rate percentage, controlled by admin.', TRUE),
     ('auto_logout_minutes',     '30',       'number',  'security',    'Idle session timeout in minutes',                      FALSE),
     ('access_token_minutes',    '15',       'number',  'security',    'Access JWT TTL in minutes',                            FALSE),
     ('refresh_token_days',      '7',        'number',  'security',    'Refresh token TTL in days',                            FALSE);
@@ -497,15 +483,6 @@ CREATE TABLE loan_requests (
     repayment_amount_per_period BIGINT NOT NULL         -- e.g. 200000, in the request's own currency
                                     CONSTRAINT chk_lr_repayment_positive CHECK (repayment_amount_per_period > 0),
     repayment_timeline          TEXT NOT NULL,          -- e.g. '4 months starting March 2026'
-
-    -- Borrower-declared collateral. Details/value/location are public risk
-    -- signals only when has_collateral is true; value and location are optional.
-    has_collateral              BOOLEAN NOT NULL DEFAULT FALSE,
-    collateral_details          TEXT,
-    collateral_estimated_value  BIGINT
-                                    CONSTRAINT chk_lr_collateral_value_positive
-                                    CHECK (collateral_estimated_value IS NULL OR collateral_estimated_value > 0),
-    collateral_location         TEXT,
 
     -- Pro-tier term suggestions. These are optional, public, and
     -- locked by trigger at publish time.
@@ -1042,39 +1019,7 @@ SELECT
     -- time-remaining helpers
     GREATEST(lr.expires_at - NOW(), INTERVAL '0')                            AS time_remaining,
     (lr.expires_at < NOW() + INTERVAL '24 hours')                            AS closing_soon_24h,
-    (lr.expires_at < NOW() + INTERVAL '6 hours')                             AS closing_soon_6h,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.preferred_bank ELSE NULL END                                    AS preferred_bank,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.institution_type ELSE NULL END                                  AS institution_type,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.is_bank_agent ELSE FALSE END                                    AS is_bank_agent,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN TRUE ELSE FALSE END                                               AS show_professional_tag,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.has_collateral ELSE FALSE END                                  AS has_collateral,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_details ELSE NULL END                               AS collateral_details,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_estimated_value ELSE NULL END                       AS collateral_estimated_value,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_location ELSE NULL END                              AS collateral_location
+    (lr.expires_at < NOW() + INTERVAL '6 hours')                             AS closing_soon_6h
 FROM  loan_requests   lr
 JOIN  profiles p ON p.id = lr.borrower_id
 JOIN  countries c ON c.code = lr.country
@@ -1101,91 +1046,6 @@ COMMENT ON VIEW v_loan_listings IS
  own country by default (MarketplaceRepository), with an explicit toggle to browse others —
  this view itself does not restrict by country, matching the "global browse" policy in
  BUILD_PLAN.md.';
-
--- Detail view for a single active loan listing.
--- Mirrors v_loan_listings but does not hide rows where the caller has already
--- made an offer; the marketplace feed still uses v_loan_listings.
-CREATE VIEW v_loan_listing_details AS
-SELECT
-    lr.id                                                                     AS request_id,
-    lr.title,
-    lr.purpose,
-    lr.district,
-    lr.country,
-    c.currency_code,
-    lr.duration_months,
-    lr.requested_amount,
-    lr.preferred_repayment_plan,
-    lr.repayment_amount_per_period,
-    lr.repayment_timeline,
-    lr.suggested_interest_rate_pct,
-    lr.suggested_late_fee_pct,
-    lr.suggested_repayment_frequency,
-    lr.suggested_installment_amount,
-    lr.terms_locked_at,
-    lr.status,
-    lr.number_of_offers,
-    CASE
-        WHEN lr.number_of_offers = 0 THEN 'low'
-        WHEN lr.number_of_offers <= 2 THEN 'medium'
-        ELSE 'high'
-    END                                                                       AS offer_coverage_tier,
-    lr.listed_at,
-    lr.expires_at,
-    k.status                                                                  AS kyc_status,
-    ta.rating_avg                                                             AS trust_rating_avg,
-    COALESCE(ta.review_count, 0)                                              AS trust_review_count,
-    COALESCE(ta.completed_deals_count, 0)                                     AS trust_completed_deals_count,
-    COALESCE(ta.is_repeat_participant, FALSE)                                AS trust_is_repeat_participant,
-    (p.phone_verified_at IS NOT NULL)                                        AS trust_phone_verified,
-    ta.response_time_bucket                                                   AS trust_response_time_bucket,
-    (k.status = 'approved')                                                   AS trust_is_verified,
-    GREATEST(lr.expires_at - NOW(), INTERVAL '0')                            AS time_remaining,
-    (lr.expires_at < NOW() + INTERVAL '24 hours')                            AS closing_soon_24h,
-    (lr.expires_at < NOW() + INTERVAL '6 hours')                             AS closing_soon_6h,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.preferred_bank ELSE NULL END                                    AS preferred_bank,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.institution_type ELSE NULL END                                  AS institution_type,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN p.is_bank_agent ELSE FALSE END                                    AS is_bank_agent,
-    CASE WHEN p.show_professional_tag AND EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN TRUE ELSE FALSE END                                               AS show_professional_tag,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.has_collateral ELSE FALSE END                                  AS has_collateral,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_details ELSE NULL END                               AS collateral_details,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_estimated_value ELSE NULL END                       AS collateral_estimated_value,
-    CASE WHEN EXISTS (
-      SELECT 1 FROM public.subscriptions s
-      WHERE s.user_id = auth.uid() AND s.status = 'active' AND s.plan = 'pro'
-    ) THEN lr.collateral_location ELSE NULL END                              AS collateral_location
-FROM  loan_requests lr
-JOIN  profiles p ON p.id = lr.borrower_id
-JOIN  countries c ON c.code = lr.country
-LEFT  JOIN kyc_verifications k ON k.user_id = lr.borrower_id
-LEFT  JOIN trust_aggregates ta ON ta.user_id = lr.borrower_id
-WHERE lr.status = 'active';
-
-COMMENT ON VIEW v_loan_listing_details IS
-'Single-listing detail view for active loan requests. Unlike v_loan_listings, it remains
- visible to users who already placed an offer, so the detail page can load after offer
- submission. Collateral and professional tags remain Pro-masked.';
 
 
 -- --------------------------------------------
@@ -1489,17 +1349,11 @@ SET search_path = public
 AS $$
 DECLARE
     v_email TEXT;
-    v_digits TEXT;
 BEGIN
-    v_digits := regexp_replace(p_phone, '[^\d]', '', 'g');
-
     SELECT au.email INTO v_email
     FROM auth.users au
-    LEFT JOIN public.profiles p ON p.id = au.id
-    WHERE p.phone = p_phone 
-       OR au.phone = p_phone 
-       OR au.email = p_phone
-       OR (v_digits <> '' AND (au.email = v_digits || '@nipanze.test' OR p.phone = '+' || v_digits))
+    JOIN public.profiles p ON p.id = au.id
+    WHERE p.phone = p_phone OR au.phone = p_phone OR au.email = p_phone
     LIMIT 1;
 
     RETURN v_email;
@@ -2658,15 +2512,8 @@ CREATE POLICY "profiles: own update"
 CREATE POLICY "subscriptions: own or admin read"
     ON subscriptions FOR SELECT TO authenticated
     USING (user_id = auth.uid() OR private.is_admin());
-CREATE POLICY "subscriptions: own insert"
-    ON subscriptions FOR INSERT TO authenticated
-    WITH CHECK (user_id = auth.uid());
-CREATE POLICY "subscriptions: own update"
-    ON subscriptions FOR UPDATE TO authenticated
-    USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY "subscriptions: admin write"
     ON subscriptions FOR ALL TO authenticated USING (private.is_admin());
-
 
 -- kyc_verifications
 CREATE POLICY "kyc: own or admin read"
@@ -2968,7 +2815,6 @@ COMMENT ON FUNCTION public.consume_free_unlock() IS
 -- Grants for views
 GRANT SELECT ON countries TO authenticated, anon;
 GRANT SELECT ON v_loan_listings TO authenticated, anon;
-GRANT SELECT ON v_loan_listing_details TO authenticated, anon;
 GRANT SELECT ON v_user_marketplace_activity TO authenticated, anon;
 GRANT SELECT ON v_lender_offers TO authenticated, anon;
 GRANT SELECT ON v_marketplace_activity TO authenticated, anon;
