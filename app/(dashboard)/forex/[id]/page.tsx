@@ -24,7 +24,7 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
 
   if (!request) notFound();
 
-  const requesterId = request.requester_id ?? request.user_id;
+  const requesterId = request.requester_id;
   const { data: owner } = requesterId
     ? await (supabase as any)
         .from("profiles")
@@ -33,9 +33,9 @@ export default async function ForexDetailPage({ params }: { params: Promise<{ id
         .single()
     : { data: null };
 
-  const fromCurr = request.currency_held ?? request.from_currency ?? "—";
-  const toCurr = request.currency_needed ?? request.to_currency ?? "—";
-  const rate = request.preferred_rate ?? request.exchange_rate;
+  const fromCurr = request.currency_held ?? "—";
+  const toCurr = request.currency_needed ?? "—";
+  const rate = request.preferred_rate;
 
   return (
     <>

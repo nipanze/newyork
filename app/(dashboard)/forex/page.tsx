@@ -89,7 +89,7 @@ export default async function ForexPage({
   let query = (supabase as any)
     .from("forex_requests")
     .select(
-      "id, country, requester_id, user_id, currency_held, from_currency, currency_needed, to_currency, amount, preferred_rate, exchange_rate, status, listed_at, expires_at, number_of_offers",
+      "id, country, requester_id, currency_held, currency_needed, amount, preferred_rate, status, listed_at, expires_at, number_of_offers",
       { count: "exact" }
     )
     .order("listed_at", { ascending: false });
@@ -101,7 +101,7 @@ export default async function ForexPage({
   if (fromQ) query = query.gte("listed_at", `${fromQ}T00:00:00.000Z`);
   if (toQ) query = query.lte("listed_at", `${toQ}T23:59:59.999Z`);
   if (allowedRequesterIds) {
-    query = query.or(`requester_id.in.(${allowedRequesterIds.join(",")}),user_id.in.(${allowedRequesterIds.join(",")})`);
+    query = query.in("requester_id", allowedRequesterIds);
   }
 
   const from = (page - 1) * pageSize;
@@ -135,7 +135,7 @@ export default async function ForexPage({
   // Resolve requester profiles
   const requesterIds = [
     ...new Set(
-      (requests ?? []).map((r: any) => r.requester_id ?? r.user_id).filter(Boolean)
+      (requests ?? []).map((r: any) => r.requester_id).filter(Boolean)
     ),
   ] as string[];
   const { data: requesterProfiles } = requesterIds.length
@@ -165,10 +165,10 @@ export default async function ForexPage({
           </TableHeader>
           <TableBody>
             {requests?.map((req: any) => {
-              const fromCurr = req.currency_held ?? req.from_currency ?? "—";
-              const toCurr = req.currency_needed ?? req.to_currency ?? "—";
-              const rate = req.preferred_rate ?? req.exchange_rate;
-              const reqId = req.requester_id ?? req.user_id;
+              const fromCurr = req.currency_held ?? "—";
+              const toCurr = req.currency_needed ?? "—";
+              const rate = req.preferred_rate;
+              const reqId = req.requester_id;
               const requester = reqId ? requesterById.get(reqId) : null;
 
               return (
