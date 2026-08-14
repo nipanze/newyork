@@ -1,4 +1,8 @@
+"use client";
+
+import React, { useRef } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,9 +37,34 @@ export function AdminFilterForm({
   resetHref: string;
 }) {
   const filterKeys = fields.map((field) => field.name);
+  const router = useRouter();
+  const pathname = usePathname();
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  const onInputChange = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      const form = formRef.current;
+      if (!form) return;
+      const fd = new FormData(form);
+      const params = new URLSearchParams();
+      for (const [k, v] of fd.entries()) {
+        const value = String(v).trim();
+        if (value === "") continue;
+        params.set(k, value);
+      }
+      const query = params.toString();
+      router.push(query ? `${pathname}?${query}` : pathname);
+    }, 300);
+  };
 
   return (
-    <form className="rounded-md border border-paper-300 bg-white p-4 shadow-sm">
+    <form
+      ref={formRef}
+      className="rounded-md border border-paper-300 bg-white p-4 shadow-sm"
+      onChange={onInputChange}
+    >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {fields.map((field) => (
           <label key={field.name} className="space-y-1">

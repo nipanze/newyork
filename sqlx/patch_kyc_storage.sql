@@ -1,8 +1,6 @@
 -- Patch: Enable storage bucket and RLS policies for KYC verification documents
 -- Paste and run this script in your Supabase SQL Editor.
 
-BEGIN;
-
 -- 1. Create the verification-documents storage bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -42,5 +40,3 @@ CREATE POLICY "Public read for verification documents"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'verification-documents');
-
-COMMIT;
