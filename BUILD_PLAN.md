@@ -532,6 +532,7 @@ separate from user-to-user financial activity.
 - [x] Mutations write `audit_logs` records with before/after status where available.
 - [x] Referral detail explains why a reward exists or has not been generated.
 - [x] Missing-table screens point admins to `sql/patch_marketer_department.sql`.
+- [x] Demo marketer accounts seeded from existing `profiles` users for market-login testing.
 
 ### Exit criteria
 

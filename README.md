@@ -150,6 +150,20 @@ message if `forex_requests` is not present yet. The Marketer department displays
 message until `sql/patch_marketer_department.sql` is applied. Apply the relevant SQL patches in
 `sql/` as stages are enabled.
 
+## Demo Marketer Accounts
+
+`sql/patch_marketer_department.sql` turns existing seeded accounts into marketers for testing.
+They remain normal Nipanze users with extra marketer records attached to `profiles.id`.
+
+All seeded auth users use `Test1234!` unless you changed the seed:
+
+| Marketer | Email | Country | Code | Status |
+|---|---|---|---|---|
+| David Mukasa | `david.mukasa@gmail.com` | UG | `NIP-DAVID` | active |
+| James Okello | `james.okello@outlook.com` | UG | `NIP-JAMES` | active, risk review |
+| Wanjiru Kamau | `wanjiru.kamau@nipanze-ke.test` | KE | `NIP-WANJIRU` | active |
+| Test User | `test.user@gmail.com` | UG | `NIP-TESTUG` | new |
+
 ## Admin Boundary
 
 Admin actions should remain limited to platform governance:
