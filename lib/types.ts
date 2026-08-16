@@ -14,6 +14,18 @@ export type SubscriptionStatus = "active" | "expired" | "cancelled" | "grace_per
 export type LoanStatus = "active" | "contracted" | "expired" | "cancelled";
 export type OfferStatus = "pending" | "accepted" | "rejected" | "withdrawn" | "expired";
 export type TransactionStatus = "pending" | "successful" | "failed" | "reversed";
+export type MarketerStatus = "new" | "active" | "suspended" | "deactivated" | "under_review";
+export type ReferralStatus = "clicked" | "registered" | "verified" | "qualified" | "rejected" | "fraud_hold";
+export type ReferralRewardStatus = "pending" | "approved" | "rejected" | "paid" | "cancelled" | "fraud_hold";
+export type ReferralPayoutStatus =
+  | "requested"
+  | "under_review"
+  | "approved"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "cancelled";
+export type ReferralCampaignStatus = "draft" | "active" | "paused" | "ended" | "deactivated";
 
 export type Profile = {
   id: string;
@@ -156,6 +168,74 @@ export type SystemSetting = {
   category: string | null;
   description: string | null;
   is_public: boolean;
+};
+
+export type ReferralMarketer = {
+  id: string;
+  profile_id: string;
+  referral_code: string;
+  status: MarketerStatus;
+  default_campaign_id: string | null;
+  joined_at: string;
+  last_activity_at: string | null;
+  risk_status: "clear" | "review" | "flagged";
+  risk_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReferralCampaign = {
+  id: string;
+  name: string;
+  description: string | null;
+  country: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: ReferralCampaignStatus;
+  qualification_event: string;
+  reward_type: "fixed" | "tiered" | "manual";
+  reward_amount: number;
+  reward_currency: string;
+  campaign_budget: number | null;
+  max_referrals: number | null;
+  eligible_plans: string[];
+  terms: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReferralReward = {
+  id: string;
+  marketer_id: string;
+  referral_id: string | null;
+  campaign_id: string | null;
+  referred_user_id: string | null;
+  reward_type: string;
+  amount: number;
+  currency: string;
+  status: ReferralRewardStatus;
+  reason: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReferralPayout = {
+  id: string;
+  marketer_id: string;
+  amount: number;
+  currency: string;
+  payout_method: string | null;
+  payout_destination_ref: string | null;
+  status: ReferralPayoutStatus;
+  failure_reason: string | null;
+  requested_at: string;
+  approved_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TrustProfilePublic = {

@@ -32,6 +32,8 @@ capability is controlled by `subscription_plan`; operational authority is contro
 - **KYC review**: pending identity submissions, document viewing, approval, and rejection.
 - **Loans**: loan listing oversight, request detail, offer visibility, and listing status review.
 - **Forex**: forex request oversight once the Stage 4.7 schema is applied.
+- **Marketers**: referral agents, campaigns, referral attribution, rewards, payouts, risk review,
+  and performance analytics for Nipanze-owned marketing rewards only.
 - **Markets & pricing**: country activation, forex enablement, and subscription pricing by market.
 - **Settings**: global and per-country `system_settings` overrides.
 - **Transactions**: Nipanze revenue records for subscriptions and future platform fees only.
@@ -139,11 +141,14 @@ The portal expects the same Supabase schema used by the Android app. Important t
 - `loan_requests`, `loan_offers`
 - `forex_requests`, `forex_offers`
 - `kyc_verifications`
+- `referrals`, `referral_marketers`, `referral_campaigns`, `referral_rewards`,
+  `referral_payouts`, `referral_events`
 - `transactions`, `audit_logs`
 
 Some screens query newer tables defensively. For example, the Forex page displays a migration
-message if `forex_requests` is not present yet. Apply the relevant SQL patches in `sql/` as stages
-are enabled.
+message if `forex_requests` is not present yet. The Marketer department displays a migration
+message until `sql/patch_marketer_department.sql` is applied. Apply the relevant SQL patches in
+`sql/` as stages are enabled.
 
 ## Admin Boundary
 
@@ -152,12 +157,16 @@ Admin actions should remain limited to platform governance:
 - approving/rejecting KYC
 - suspending/reactivating accounts
 - granting/revoking admin access
+- managing referral marketers, campaigns, rewards, and payout workflow for Nipanze marketing
+  expenses
 - toggling market availability
 - managing subscription pricing and settings
 - reviewing listings, audit logs, and platform revenue records
 
 Admin actions must not create hidden custodial behavior. User-to-user lending, repayment,
 settlement, and currency exchange happen outside Nipanze after controlled contact reveal.
+Marketer rewards and payouts are Nipanze marketing expenses; they are not platform revenue and
+must never be mixed with P2P loan or forex settlement funds.
 
 ## Scripts
 

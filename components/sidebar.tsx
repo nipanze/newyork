@@ -12,6 +12,7 @@ import {
   ScrollText,
   Globe2,
   SlidersHorizontal,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/users", label: "Accounts", icon: Users },
   { href: "/loans", label: "Loans", icon: HandCoins },
   { href: "/forex", label: "Forex", icon: ArrowLeftRight },
+  { href: "/marketers", label: "Marketers", icon: Megaphone },
   { href: "/kyc", label: "KYC review", icon: ShieldCheck },
   { href: "/transactions", label: "Transactions", icon: Receipt },
   { href: "/audit-logs", label: "Audit log", icon: ScrollText },

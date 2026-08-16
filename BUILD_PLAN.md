@@ -2,8 +2,8 @@
 
 > **Repo**: Next.js + Supabase admin/control portal  
 > **Related client docs**: [README_Android.md](README_Android.md), [BUILD_PLAN_android.md](BUILD_PLAN_android.md)  
-> **Current focus**: Build complete admin controls, starting with Overview and Accounts  
-> **Updated**: August 12, 2026
+> **Current focus**: Marketer / Referral Department
+> **Updated**: August 16, 2026
 
 ## 1. Purpose
 
@@ -68,6 +68,15 @@ Both surfaces share:
 - `/settings` — global/per-market settings
 - `/transactions` — platform revenue records
 - `/audit-logs` — compliance/event trail
+- `/marketers` — marketer/referral department overview
+- `/marketers/users` — marketer roster
+- `/marketers/users/[id]` — marketer detail and controls
+- `/marketers/referrals` — referral attribution and review
+- `/marketers/referrals/[id]` — referral detail
+- `/marketers/rewards` — referral reward queue
+- `/marketers/payouts` — marketer payout workflow
+- `/marketers/campaigns` — campaign rules and status controls
+- `/marketers/risk` — fraud/risk review queue
 
 ### 3.3 Existing admin controls
 
@@ -79,6 +88,7 @@ Both surfaces share:
 - settings row editor
 - account action controls
 - loan/forex list and detail pages
+- marketer/referral department pages and status controls
 - audit and transaction pages
 
 ### 3.4 Known gaps
@@ -134,7 +144,8 @@ Both surfaces share:
 | 6 | Forex Moderation | Planned | Forex request/offer oversight and market/currency checks |
 | 7 | Markets, Pricing, Settings | Planned | Complete market activation, price, currency, and setting controls |
 | 8 | Transactions & Audit Logs | Planned | Better revenue and compliance search/filter/reporting |
-| 9 | Hardening & Launch Readiness | Planned | Tests, security pass, performance, pagination, deployment checks |
+| 9 | Marketer / Referral Department | In progress | Referral agents, campaigns, rewards, payouts, risk, and analytics |
+| 10 | Hardening & Launch Readiness | Planned | Tests, security pass, performance, pagination, deployment checks |
 
 ## 6. Stage 1 — Shared Filter/Search Foundation
 
@@ -192,6 +203,10 @@ Make `/dashboard` the main admin command center.
 - [x] active markets
 - [x] forex-enabled markets
 - [x] subscriptions by plan
+- [x] active marketers
+- [x] referrals this month
+- [x] qualified referrals this month
+- [x] pending marketer payouts
 
 ### Dashboard sections
 
@@ -210,6 +225,7 @@ Make `/dashboard` the main admin command center.
 - [x] quick link to filtered Forex
 - [x] quick link to Countries/Pricing
 - [x] quick link to Audit Logs
+- [x] quick link to Marketer Department
 
 ### Exit criteria
 
@@ -442,7 +458,90 @@ Improve operational reporting and compliance review.
 
 - Admin can trace what happened, who did it, and which user/listing/market was affected.
 
-## 14. Stage 9 — Hardening & Launch Readiness
+## 14. Stage 9 — Marketer / Referral Department
+
+### Goal
+
+Build a complete marketer department inside the existing admin portal for referral agents,
+referral attribution, country-aware campaigns, Nipanze-owned marketing rewards, payout workflow,
+fraud/risk review, and performance analytics.
+
+This stage never processes, holds, distributes, or represents P2P loan funds or forex settlement
+funds. Marketer rewards are Nipanze marketing expenses, separate from platform revenue and
+separate from user-to-user financial activity.
+
+### Database foundation
+
+- [x] Add additive patch: `sql/patch_marketer_department.sql`.
+- [x] Reuse and extend existing `referrals` table.
+- [x] Add `referral_marketers`.
+- [x] Add `referral_campaigns`.
+- [x] Add `referral_rewards`.
+- [x] Add `referral_payouts`.
+- [x] Add `referral_events`.
+- [x] Add foreign keys, status checks, indexes, timestamps, and RLS policies.
+- [x] Preserve campaign reward snapshots on reward rows.
+- [x] Keep rewards/payouts separate from `transactions`.
+
+### Routes
+
+- [x] `/marketers` overview.
+- [x] `/marketers/users` marketer list.
+- [x] `/marketers/users/[id]` marketer detail.
+- [x] `/marketers/referrals` referral list.
+- [x] `/marketers/referrals/[id]` referral detail.
+- [x] `/marketers/rewards` reward queue.
+- [x] `/marketers/payouts` payout queue.
+- [x] `/marketers/campaigns` campaign rules.
+- [x] `/marketers/risk` fraud/risk queue.
+
+### Filters and analytics
+
+- [x] country filter.
+- [x] date range filters where applicable.
+- [x] campaign filter.
+- [x] marketer status filter.
+- [x] referral status filter.
+- [x] reward status filter.
+- [x] server-side pagination on list/queue pages.
+- [x] overview KPIs for marketers, referrals, rewards, campaigns, and risk.
+- [ ] richer charts for referrals/rewards over time.
+- [ ] exported analytics reports.
+
+### Controls
+
+- [x] activate marketer.
+- [x] suspend marketer.
+- [x] deactivate marketer.
+- [x] flag marketer for review.
+- [x] approve/reject rewards.
+- [x] place/release reward fraud hold.
+- [x] mark reward paid only with explicit verified-payout confirmation.
+- [x] move payouts through requested/review/approved/processing/paid/failed states.
+- [x] activate/pause/end/deactivate campaigns.
+- [ ] create/edit campaign forms.
+- [ ] assign/remove campaign from marketer.
+- [ ] regenerate referral code with stronger confirmation.
+- [ ] structured rejection/failure reason capture in forms.
+
+### Audit and security
+
+- [x] All marketer mutation routes call `requireAdmin()`.
+- [x] Service-role writes stay in route handlers/server code.
+- [x] High-impact actions prompt confirmation.
+- [x] Mutations write `audit_logs` records with before/after status where available.
+- [x] Referral detail explains why a reward exists or has not been generated.
+- [x] Missing-table screens point admins to `sql/patch_marketer_department.sql`.
+
+### Exit criteria
+
+- Admins can supervise marketers, referrals, rewards, payouts, campaigns, and risk inside the
+  existing portal.
+- Marketing rewards remain country/currency-aware.
+- The department preserves Nipanze's non-custodial boundary.
+- Important actions are URL-driven, admin-gated, and audited.
+
+## 15. Stage 10 — Hardening & Launch Readiness
 
 ### Security
 
@@ -462,7 +561,7 @@ Improve operational reporting and compliance review.
 
 - [x] Build check passes.
 
-## 15. Immediate Next Build Order
+## 16. Immediate Next Build Order
 
 1. Add shared filter utilities and small reusable filter controls. [DONE]
 2. Upgrade `/dashboard` with richer KPIs and drill-down sections. [DONE]
@@ -470,8 +569,10 @@ Improve operational reporting and compliance review.
 4. Upgrade `/users` filters and pagination. [DONE]
 5. Upgrade `/users/[id]` into a complete control page. [DONE]
 6. Extend the same filter/control pattern to KYC, Loans, Forex, Audit Logs, and Transactions. [DONE]
+7. Apply `sql/patch_marketer_department.sql` and seed initial referral campaigns/marketers. [NEXT]
+8. Add marketer campaign create/edit forms and structured reason capture. [NEXT]
 
-## 16. Definition of Done for First Milestone
+## 17. Definition of Done for First Milestone
 
 The first milestone is complete when:
 

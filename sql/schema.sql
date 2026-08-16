@@ -383,7 +383,10 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, category,
     ('min_loan_amount',         '100000',   'number',  'limits',      'Minimum loan request amount, in the request''s own currency (global default)', TRUE),
     ('max_loan_amount',         '50000000', 'number',  'limits',      'Maximum loan request amount, in the request''s own currency (global default)', TRUE),
     ('min_offer_amount',        '100000',   'number',  'limits',      'Minimum offer amount per lender, in the listing''s own currency (global default)', TRUE),
-    ('max_concurrent_requests', '3',        'number',  'limits',      'Maximum active loan requests per borrower',             TRUE),
+    ('max_concurrent_requests', '2',        'number',  'limits',      'Legacy fallback maximum active loan requests per borrower', TRUE),
+    ('max_active_requests_free',   '2',     'number',  'limits',      'Maximum active loan requests for Free subscribers',      TRUE),
+    ('max_active_requests_lender', '5',     'number',  'limits',      'Maximum active loan requests for Lender subscribers',    TRUE),
+    ('max_active_requests_pro',    '15',    'number',  'limits',      'Maximum active loan requests for Pro subscribers',       TRUE),
     ('listing_duration_days',   '7',        'number',  'marketplace', 'Days a loan request stays listed before expiry',       TRUE),
     ('kyc_validity_months',     '12',       'number',  'compliance',  'Months until KYC expires and re-verification required', TRUE),
     ('platform_currency',       'UGX',      'string',  'general',     'Fallback/global-default operating currency (each market''s actual currency comes from countries.currency_code)', TRUE),
@@ -1835,16 +1838,44 @@ END;
 $$;
 
 
--- Enforce max concurrent active requests from system_settings
+-- Enforce plan-specific max concurrent active requests from system_settings.
+-- Completed, contracted, expired, or cancelled requests do not count.
 CREATE OR REPLACE FUNCTION trg_fn_max_concurrent_requests()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$
 DECLARE
     v_active_count INT;
     v_max          INT;
+    v_plan         subscription_plan_enum;
 BEGIN
+    SELECT COALESCE(s.plan, 'free'::subscription_plan_enum) INTO v_plan
+    FROM profiles p
+    LEFT JOIN subscriptions s
+      ON s.user_id = p.id
+     AND s.status = 'active'
+     AND (s.expires_at IS NULL OR s.expires_at > NOW())
+    WHERE p.id = NEW.borrower_id
+    LIMIT 1;
+
+    v_plan := COALESCE(v_plan, 'free'::subscription_plan_enum);
+
     SELECT setting_value::INT INTO v_max
-    FROM system_settings WHERE setting_key = 'max_concurrent_requests' AND country IS NULL;
+    FROM system_settings
+    WHERE setting_key = ('max_active_requests_' || v_plan::TEXT)
+      AND (country = NEW.country OR country IS NULL)
+    ORDER BY country NULLS LAST
+    LIMIT 1;
+
+    IF v_max IS NULL THEN
+        SELECT setting_value::INT INTO v_max
+        FROM system_settings
+        WHERE setting_key = 'max_concurrent_requests'
+          AND (country = NEW.country OR country IS NULL)
+        ORDER BY country NULLS LAST
+        LIMIT 1;
+    END IF;
+
+    v_max := COALESCE(v_max, 2);
 
     SELECT COUNT(*) INTO v_active_count
     FROM loan_requests
@@ -2864,6 +2895,81 @@ END $$;
 -- ============================================
 -- Create via Supabase CLI or dashboard:
 --   supabase storage create verification-documents --public=false
+
+-- ============================================
+-- STORAGE RLS POLICIES: verification-documents
+-- ============================================
+-- Files are stored under <user_uuid>/<docType>_<timestamp>.<ext>
+-- Policy: each user may only access their own folder.
+
+-- Users can upload their own KYC documents
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename  = 'objects'
+      AND policyname = 'Users can upload their own KYC documents'
+  ) THEN
+    CREATE POLICY "Users can upload their own KYC documents"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (
+      bucket_id = 'verification-documents'
+      AND (storage.foldername(name))[1] = auth.uid()::text
+    );
+  END IF;
+END $$;
+
+-- Users can read (view) their own KYC documents
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename  = 'objects'
+      AND policyname = 'Users can view their own KYC documents'
+  ) THEN
+    CREATE POLICY "Users can view their own KYC documents"
+    ON storage.objects FOR SELECT
+    TO authenticated
+    USING (
+      bucket_id = 'verification-documents'
+      AND (storage.foldername(name))[1] = auth.uid()::text
+    );
+  END IF;
+END $$;
+
+-- Users can replace (upsert) their own KYC documents
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename  = 'objects'
+      AND policyname = 'Users can update their own KYC documents'
+  ) THEN
+    CREATE POLICY "Users can update their own KYC documents"
+    ON storage.objects FOR UPDATE
+    TO authenticated
+    USING (
+      bucket_id = 'verification-documents'
+      AND (storage.foldername(name))[1] = auth.uid()::text
+    );
+  END IF;
+END $$;
+
+-- Admins (service_role) can read all KYC documents for review
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename  = 'objects'
+      AND policyname = 'Admins can view all KYC documents'
+  ) THEN
+    CREATE POLICY "Admins can view all KYC documents"
+    ON storage.objects FOR SELECT
+    TO service_role
+    USING (bucket_id = 'verification-documents');
+  END IF;
+END $$;
 
 -- ============================================
 -- FUNCTION SECURITY (Disable public access for SECURITY DEFINER functions)

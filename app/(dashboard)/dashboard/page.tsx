@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Users,
   UserX,
+  Megaphone,
+  Banknote,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -156,6 +158,7 @@ export default async function DashboardOverviewPage({
     module === "loans"
       ? { count: 0, data: [] as any[] }
       : await getForexOverview(supabase, { country, fromDate, toDate });
+  const marketerStats = await getMarketerDashboardStats(supabase, { country });
 
   const planCounts = (subscriptions ?? []).reduce(
     (acc, sub) => {
@@ -231,6 +234,15 @@ export default async function DashboardOverviewPage({
           <StatCard label="Active forex requests" value={forexRequests.count} icon={ArrowLeftRight} />
           <StatCard label="Active markets" value={activeCountryCount ?? 0} icon={Globe2} />
           <StatCard label="Forex markets" value={forexCountryCount ?? 0} icon={Globe2} />
+          <StatCard label="Active marketers" value={marketerStats.activeMarketers} icon={Megaphone} />
+          <StatCard label="Referrals this month" value={marketerStats.referralsThisMonth} icon={Users} />
+          <StatCard label="Qualified referrals" value={marketerStats.qualifiedThisMonth} icon={BadgeCheck} tone="confirm" />
+          <StatCard
+            label="Pending marketer payouts"
+            value={marketerStats.pendingPayouts}
+            icon={Banknote}
+            tone={marketerStats.pendingPayouts ? "signal" : "neutral"}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -254,6 +266,7 @@ export default async function DashboardOverviewPage({
               <QuickLink href={`/kyc?${buildQueryString(params, { status: "pending", page: 1 })}`}>Pending KYC</QuickLink>
               <QuickLink href={`/loans?${buildQueryString(params, { status: "active", page: 1 })}`}>Active Loans</QuickLink>
               <QuickLink href={`/forex?${buildQueryString(params, { status: "active", page: 1 })}`}>Active Forex</QuickLink>
+              <QuickLink href="/marketers">Marketer Department</QuickLink>
               <QuickLink href="/countries">Markets & Pricing</QuickLink>
               <QuickLink href="/audit-logs">Audit Logs</QuickLink>
             </CardContent>
@@ -438,6 +451,56 @@ async function getForexOverview(
   }
 
   return { count: count ?? 0, data: data ?? [] };
+}
+
+async function getMarketerDashboardStats(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  filters: { country?: string }
+) {
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const since = monthStart.toISOString();
+
+  const [
+    activeMarketers,
+    referralsThisMonth,
+    qualifiedThisMonth,
+    pendingPayouts,
+  ] = await Promise.all([
+    (supabase as any)
+      .from("referral_marketers")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active"),
+    buildReferralCount(supabase, filters.country, since),
+    buildReferralCount(supabase, filters.country, since, "qualified"),
+    (supabase as any)
+      .from("referral_payouts")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["requested", "under_review", "approved", "processing"]),
+  ]);
+
+  return {
+    activeMarketers: activeMarketers.error ? 0 : activeMarketers.count ?? 0,
+    referralsThisMonth: referralsThisMonth.error ? 0 : referralsThisMonth.count ?? 0,
+    qualifiedThisMonth: qualifiedThisMonth.error ? 0 : qualifiedThisMonth.count ?? 0,
+    pendingPayouts: pendingPayouts.error ? 0 : pendingPayouts.count ?? 0,
+  };
+}
+
+function buildReferralCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  country: string | undefined,
+  since: string,
+  status?: string
+) {
+  let query = (supabase as any)
+    .from("referrals")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", since);
+  if (country) query = query.eq("country", country);
+  if (status) query = query.eq("status", status);
+  return query;
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {
