@@ -5,6 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const VALID_MODERATION_ACTIONS = ["cancel", "mark_review", "restore"] as const;
 type ModerationAction = (typeof VALID_MODERATION_ACTIONS)[number];
 
+const ACTION_STATUS: Record<ModerationAction, string> = {
+  cancel: "cancelled",
+  mark_review: "active",
+  restore: "active",
+};
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if ("error" in admin) return admin.error;
@@ -24,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: req, error: fetchError } = await (supabaseAdmin as any)
     .from("forex_requests")
-    .select("id, status, country")
+    .select("id, status, country, expires_at")
     .eq("id", id)
     .single();
 
@@ -33,10 +39,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const typedAction = action as ModerationAction;
+  const newStatus = ACTION_STATUS[typedAction];
   const update: Record<string, unknown> = {};
 
   if (typedAction === "cancel") {
     update.status = "cancelled";
+    update.cancelled_at = new Date().toISOString();
+  } else if (typedAction === "restore") {
+    update.status = "active";
+    update.cancelled_at = null;
+    if (!req.expires_at || new Date(req.expires_at).getTime() <= Date.now()) {
+      update.expires_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    }
   }
 
   if (Object.keys(update).length > 0) {
@@ -60,5 +74,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     new_values: Object.keys(update).length ? update : null,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status: newStatus });
 }

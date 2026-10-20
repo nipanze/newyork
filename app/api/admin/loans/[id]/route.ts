@@ -7,7 +7,7 @@ type ModerationAction = (typeof VALID_MODERATION_ACTIONS)[number];
 
 const ACTION_STATUS: Record<ModerationAction, string> = {
   cancel: "cancelled",
-  mark_review: "active", // keeps active but adds admin note
+  mark_review: "active",
   restore: "active",
 };
 
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: loan, error: fetchError } = await supabaseAdmin
     .from("loan_requests")
-    .select("id, status, title, borrower_id")
+    .select("id, status, title, borrower_id, expires_at")
     .eq("id", id)
     .single();
 
@@ -44,8 +44,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const update: Record<string, unknown> = {};
   if (typedAction === "cancel") {
     update.status = "cancelled";
+    update.cancelled_at = new Date().toISOString();
+  } else if (typedAction === "restore") {
+    update.status = "active";
+    update.cancelled_at = null;
+    // If the loan has already expired or expires_at is empty, give it 30 days of active lifetime
+    if (!loan.expires_at || new Date(loan.expires_at).getTime() <= Date.now()) {
+      update.expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
   }
-  // mark_review and restore don't change status but still write an audit record
 
   if (Object.keys(update).length > 0) {
     const { error } = await supabaseAdmin
@@ -68,5 +75,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     new_values: Object.keys(update).length ? update : null,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status: newStatus });
 }

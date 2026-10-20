@@ -6,12 +6,6 @@ import { Button } from "@/components/ui/button";
 
 type ModerationAction = "cancel" | "mark_review" | "restore";
 
-const ACTIONS: { action: ModerationAction; label: string; variant: "destructive" | "signal" | "outline" }[] = [
-  { action: "cancel", label: "Cancel request", variant: "destructive" },
-  { action: "mark_review", label: "Flag for review", variant: "signal" },
-  { action: "restore", label: "Restore / clear flag", variant: "outline" },
-];
-
 export function ForexModerationActions({
   requestId,
   currentStatus,
@@ -24,20 +18,32 @@ export function ForexModerationActions({
   const [error, setError] = useState<string | null>(null);
 
   async function moderate(action: ModerationAction) {
-    setLoading(action);
-    setError(null);
-    const res = await fetch(`/api/admin/forex/${requestId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    setLoading(null);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Action failed.");
+    if (action === "cancel" && !confirm("Are you sure you want to cancel this forex request?")) {
       return;
     }
-    router.refresh();
+    if (action === "restore" && !confirm("Restore this forex request back to active status?")) {
+      return;
+    }
+
+    setLoading(action);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/forex/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      setLoading(null);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Action failed.");
+        return;
+      }
+      router.refresh();
+    } catch (e: any) {
+      setLoading(null);
+      setError(e.message || "Network error");
+    }
   }
 
   const isCancelled = currentStatus === "cancelled";
@@ -48,21 +54,35 @@ export function ForexModerationActions({
         Moderation controls
       </p>
       <div className="flex flex-wrap gap-2">
-        {ACTIONS.map(({ action, label, variant }) => {
-          if (action === "cancel" && isCancelled) return null;
-          if (action === "restore" && !isCancelled) return null;
-          return (
+        {isCancelled ? (
+          <Button
+            size="sm"
+            variant="confirm"
+            disabled={!!loading}
+            onClick={() => moderate("restore")}
+          >
+            {loading === "restore" ? "Restoring…" : "Restore request to active"}
+          </Button>
+        ) : (
+          <>
             <Button
-              key={action}
               size="sm"
-              variant={variant as any}
+              variant="destructive"
               disabled={!!loading}
-              onClick={() => moderate(action)}
+              onClick={() => moderate("cancel")}
             >
-              {loading === action ? "Processing…" : label}
+              {loading === "cancel" ? "Cancelling…" : "Cancel request"}
             </Button>
-          );
-        })}
+            <Button
+              size="sm"
+              variant="signal"
+              disabled={!!loading}
+              onClick={() => moderate("mark_review")}
+            >
+              {loading === "mark_review" ? "Flagging…" : "Flag for review"}
+            </Button>
+          </>
+        )}
       </div>
       <p className="text-xs text-ink-500">
         These actions are non-financial — they only control listing visibility. All moderation
