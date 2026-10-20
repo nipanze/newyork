@@ -41,37 +41,73 @@ export default async function ProvidersPage({
     .eq("id", user?.id ?? "")
     .single();
 
-  // Query distinct users who have provider capabilities or category profiles
-  let query = supabase
+  // Fetch all declared capabilities and category profiles to identify distinct provider users
+  const [{ data: allCapabilities }, { data: allCatProfiles }, { data: allCompanyProfiles }] =
+    await Promise.all([
+      supabase
+        .from("provider_capabilities")
+        .select("id, user_id, capability_slug, verification_level, is_active, identity_type"),
+      supabase
+        .from("provider_category_profiles")
+        .select("user_id, category_slug, provider_type, updated_at"),
+      supabase
+        .from("provider_company_profiles")
+        .select("user_id, category_slug, company_name, registration_number"),
+    ]);
+
+  // Group capabilities by user_id
+  const capsByUser = new Map<string, any[]>();
+  (allCapabilities ?? []).forEach((c) => {
+    const list = capsByUser.get(c.user_id) ?? [];
+    list.push(c);
+    capsByUser.set(c.user_id, list);
+  });
+
+  // Group category profiles by user_id
+  const catProfilesByUser = new Map<string, any[]>();
+  (allCatProfiles ?? []).forEach((cp) => {
+    const list = catProfilesByUser.get(cp.user_id) ?? [];
+    list.push(cp);
+    catProfilesByUser.set(cp.user_id, list);
+  });
+
+  // Group company profiles by user_id
+  const compProfilesByUser = new Map<string, any[]>();
+  (allCompanyProfiles ?? []).forEach((comp) => {
+    const list = compProfilesByUser.get(comp.user_id) ?? [];
+    list.push(comp);
+    compProfilesByUser.set(comp.user_id, list);
+  });
+
+  // Collect all provider user IDs
+  const providerUserIds = [
+    ...new Set([
+      ...(allCapabilities ?? []).map((c) => c.user_id),
+      ...(allCatProfiles ?? []).map((cp) => cp.user_id),
+    ]),
+  ];
+
+  let providersQuery = supabase
     .from("profiles")
-    .select(
-      `
-      id, full_name, phone, country, district, account_status, created_at,
-      provider_category_profiles ( category_slug, provider_type, updated_at ),
-      provider_capabilities ( id, capability_slug, verification_level, is_active, identity_type ),
-      provider_company_profiles ( category_slug, company_name, registration_number )
-    `,
-      { count: "exact" }
-    )
-    .not("provider_capabilities", "is", null);
+    .select("id, full_name, phone, country, district, account_status, created_at", { count: "exact" })
+    .in("id", providerUserIds.length ? providerUserIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (nameQ) {
-    query = query.ilike("full_name", `%${nameQ}%`);
+    providersQuery = providersQuery.ilike("full_name", `%${nameQ}%`);
   }
   if (countryQ) {
-    query = query.eq("country", countryQ.toUpperCase());
+    providersQuery = providersQuery.eq("country", countryQ.toUpperCase());
   }
 
-  const { data: providersRaw, count } = await query
+  const { data: rawProfiles, count } = await providersQuery
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
 
-  // Filter in memory if typeQ specified
-  let providers = (providersRaw || []).filter((p) => {
+  // Filter by provider type if selected (individual vs company)
+  let providers = (rawProfiles ?? []).filter((p) => {
     if (!typeQ) return true;
-    return p.provider_category_profiles?.some(
-      (pcp: any) => pcp.provider_type === typeQ
-    );
+    const userCats = catProfilesByUser.get(p.id) ?? [];
+    return userCats.some((cp) => cp.provider_type === typeQ);
   });
 
   return (
@@ -85,7 +121,7 @@ export default async function ProvidersPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-paper-300 pb-3">
         <div className="flex items-center gap-2">
           <Badge variant="neutral" className="text-sm px-3 py-1">
-            Total Providers: {count ?? 0}
+            Total Providers: {providerUserIds.length}
           </Badge>
         </div>
 
@@ -142,10 +178,11 @@ export default async function ProvidersPage({
                 </TableRow>
               ) : (
                 providers.map((p) => {
-                  const caps = p.provider_capabilities || [];
+                  const caps = capsByUser.get(p.id) ?? [];
                   const verifiedCaps = caps.filter((c: any) => c.verification_level === "provider_verified");
                   const activeCaps = caps.filter((c: any) => c.is_active);
-                  const companyProfiles = p.provider_company_profiles || [];
+                  const userCats = catProfilesByUser.get(p.id) ?? [];
+                  const userComps = compProfilesByUser.get(p.id) ?? [];
 
                   return (
                     <TableRow key={p.id}>
@@ -164,8 +201,8 @@ export default async function ProvidersPage({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {p.provider_category_profiles?.length ? (
-                            p.provider_category_profiles.map((pcp: any) => (
+                          {userCats.length ? (
+                            userCats.map((pcp: any) => (
                               <Badge
                                 key={pcp.category_slug}
                                 variant={pcp.provider_type === "company" ? "confirm" : "neutral"}
@@ -180,12 +217,12 @@ export default async function ProvidersPage({
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-ink-700">
-                        {companyProfiles.length > 0 ? (
+                        {userComps.length > 0 ? (
                           <div>
-                            <p className="font-medium">{companyProfiles[0].company_name || "Company"}</p>
-                            {companyProfiles[0].registration_number && (
+                            <p className="font-medium">{userComps[0].company_name || "Company"}</p>
+                            {userComps[0].registration_number && (
                               <p className="font-mono text-[11px] text-ink-500">
-                                Reg: {companyProfiles[0].registration_number}
+                                Reg: {userComps[0].registration_number}
                               </p>
                             )}
                           </div>

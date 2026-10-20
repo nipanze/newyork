@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NeedModerationActions } from "@/components/need-moderation-actions";
-import { formatDateTime, formatCurrency } from "@/lib/utils";
+import { formatDateTime, formatAmount } from "@/lib/utils";
 import { ArrowLeft, User, PhoneCall, Handshake } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +42,7 @@ export default async function NeedDetailPage({
 
   const { data: need } = await supabase
     .from("needs_requests")
-    .select(`
-      *,
-      profiles:requester_id ( id, full_name, phone, country, district )
-    `)
+    .select("*")
     .eq("request_id", id)
     .single();
 
@@ -53,28 +50,56 @@ export default async function NeedDetailPage({
     notFound();
   }
 
-  const requester = Array.isArray(need.profiles) ? need.profiles[0] : need.profiles;
+  // Resolve requester profile safely
+  const { data: requester } = need.requester_id
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, phone, country, district")
+        .eq("id", need.requester_id)
+        .single()
+    : { data: null };
 
   // Fetch offers for this need
   const { data: offers } = await supabase
     .from("need_offers")
-    .select(`
-      *,
-      profiles:offer_maker_id ( id, full_name, phone, country )
-    `)
+    .select("*")
     .eq("need_id", id)
     .order("offered_at", { ascending: false });
+
+  const makerIds = [
+    ...new Set((offers ?? []).map((o) => o.offer_maker_id).filter(Boolean)),
+  ] as string[];
+
+  const { data: makerProfiles } = makerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, phone, country")
+        .in("id", makerIds)
+    : { data: [] };
+
+  const makerById = new Map((makerProfiles ?? []).map((p) => [p.id, p]));
 
   // Fetch contact reveals for this need
   const { data: reveals } = await supabase
     .from("need_contact_reveals")
-    .select(`
-      *,
-      provider:provider_id ( id, full_name, phone ),
-      requester:requester_id ( id, full_name, phone )
-    `)
+    .select("*")
     .eq("need_id", id)
     .order("unlocked_at", { ascending: false });
+
+  const partyIds = [
+    ...new Set(
+      (reveals ?? []).flatMap((r) => [r.provider_id, r.requester_id]).filter(Boolean)
+    ),
+  ] as string[];
+
+  const { data: partyProfiles } = partyIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, phone")
+        .in("id", partyIds)
+    : { data: [] };
+
+  const partyById = new Map((partyProfiles ?? []).map((p) => [p.id, p]));
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -113,7 +138,7 @@ export default async function NeedDetailPage({
           <CardContent className="pt-6">
             <span className="text-xs font-medium text-ink-500">Budget</span>
             <p className="mt-2 text-xl font-bold text-ink-950">
-              {formatCurrency(need.budget, need.currency || "UGX")}
+              {formatAmount(need.budget, need.currency || "UGX")}
             </p>
           </CardContent>
         </Card>
@@ -136,7 +161,9 @@ export default async function NeedDetailPage({
             <span className="text-xs font-medium text-ink-500">Offers & Reveals</span>
             <p className="mt-2 text-xl font-bold text-ink-950">
               {offers?.length ?? 0}
-              <span className="text-xs font-normal text-ink-500"> offers · {reveals?.length ?? 0} revealed</span>
+              <span className="text-xs font-normal text-ink-500">
+                {" "}offers · {reveals?.length ?? 0} revealed
+              </span>
             </p>
           </CardContent>
         </Card>
@@ -212,7 +239,7 @@ export default async function NeedDetailPage({
                 </div>
               </>
             ) : (
-              <p className="italic text-ink-400">Anonymous or Unregistered</p>
+              <p className="italic text-ink-400">Public / Seeded listing</p>
             )}
           </CardContent>
         </Card>
@@ -247,8 +274,10 @@ export default async function NeedDetailPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                offers.map((offer: any) => {
-                  const provider = Array.isArray(offer.profiles) ? offer.profiles[0] : offer.profiles;
+                offers.map((offer) => {
+                  const provider = offer.offer_maker_id
+                    ? makerById.get(offer.offer_maker_id)
+                    : null;
                   return (
                     <TableRow key={offer.id}>
                       <TableCell>
@@ -268,7 +297,7 @@ export default async function NeedDetailPage({
                         {offer.provider_identity_type || "individual"}
                       </TableCell>
                       <TableCell className="text-xs font-semibold text-ink-900">
-                        {formatCurrency(offer.price, offer.currency || "UGX")}
+                        {formatAmount(offer.price, offer.currency || "UGX")}
                       </TableCell>
                       <TableCell className="text-xs text-ink-700">
                         {offer.timeline_text || "—"}
@@ -315,24 +344,32 @@ export default async function NeedDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reveals.map((rev: any) => {
-                  const prov = Array.isArray(rev.provider) ? rev.provider[0] : rev.provider;
-                  const req = Array.isArray(rev.requester) ? rev.requester[0] : rev.requester;
+                {reveals.map((rev) => {
+                  const prov = rev.provider_id ? partyById.get(rev.provider_id) : null;
+                  const req = rev.requester_id ? partyById.get(rev.requester_id) : null;
                   return (
                     <TableRow key={rev.id}>
                       <TableCell className="text-xs font-mono text-ink-700">
                         {rev.unlocked_by === rev.requester_id ? "Requester" : "Provider"}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/providers/${prov?.id}`} className="font-medium text-ink-900 hover:underline">
-                          {prov?.full_name || "Provider"}
-                        </Link>
+                        {prov ? (
+                          <Link href={`/providers/${prov.id}`} className="font-medium text-ink-900 hover:underline">
+                            {prov.full_name || "Provider"}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-ink-500">Provider</span>
+                        )}
                         <p className="text-[11px] text-ink-500">{prov?.phone || "—"}</p>
                       </TableCell>
                       <TableCell>
-                        <Link href={`/users/${req?.id}`} className="font-medium text-ink-900 hover:underline">
-                          {req?.full_name || "Requester"}
-                        </Link>
+                        {req ? (
+                          <Link href={`/users/${req.id}`} className="font-medium text-ink-900 hover:underline">
+                            {req.full_name || "Requester"}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-ink-500">Requester</span>
+                        )}
                         <p className="text-[11px] text-ink-500">{req?.phone || "—"}</p>
                       </TableCell>
                       <TableCell className="text-xs text-ink-500">
@@ -349,4 +386,3 @@ export default async function NeedDetailPage({
     </div>
   );
 }
-

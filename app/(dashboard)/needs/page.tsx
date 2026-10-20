@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdminFilterForm } from "@/components/admin-filter-form";
 import { Pagination } from "@/components/pagination";
-import { formatDateTime, formatCurrency } from "@/lib/utils";
+import { formatDateTime, formatAmount } from "@/lib/utils";
 import {
   getPage,
   getPageSize,
@@ -49,19 +49,54 @@ export default async function NeedsPage({
     .eq("id", user?.id ?? "")
     .single();
 
-  // Metrics
+  // Metrics: Total and Active needs requests
   const [{ count: totalNeeds }, { count: activeNeeds }] = await Promise.all([
     supabase.from("needs_requests").select("*", { count: "exact", head: true }),
     supabase.from("needs_requests").select("*", { count: "exact", head: true }).eq("status", "active"),
   ]);
 
+  // Fetch all categories dynamically from need_categories AND distinct category names from needs_requests
+  const [{ data: dbCategories }, { data: distinctNeedsCats }] = await Promise.all([
+    supabase.from("need_categories").select("slug, name, icon").order("name"),
+    supabase.from("needs_requests").select("category, category_slug").limit(1000),
+  ]);
+
+  // Build a comprehensive, deduplicated category options list
+  const categoryMap = new Map<string, { label: string; value: string }>();
+
+  // Add all from need_categories table
+  (dbCategories ?? []).forEach((cat) => {
+    categoryMap.set(cat.slug, {
+      label: `${cat.icon ? `${cat.icon} ` : ""}${cat.name}`,
+      value: cat.slug,
+    });
+  });
+
+  // Also add any distinct category names from needs_requests (e.g. seeded categories like "Home & Energy", "Education", etc.)
+  (distinctNeedsCats ?? []).forEach((item) => {
+    if (item.category && item.category !== "Other") {
+      const val = item.category;
+      if (!categoryMap.has(val) && !categoryMap.has(item.category_slug || "")) {
+        categoryMap.set(val, {
+          label: val,
+          value: val,
+        });
+      }
+    }
+  });
+
+  const categoryOptions = [
+    { label: "All Categories", value: "" },
+    ...Array.from(categoryMap.values()).sort((a, b) => a.label.localeCompare(b.label)),
+  ];
+
+  // Base query without embedded profiles to ensure schema-cache compatibility
   let query = supabase
     .from("needs_requests")
     .select(
       `
       request_id, title, specification, category, category_slug, budget, currency,
-      location, country, urgency, status, number_of_offers, listed_at, requester_id,
-      profiles:requester_id ( id, full_name, phone )
+      location, country, urgency, status, number_of_offers, listed_at, requester_id
     `,
       { count: "exact" }
     )
@@ -70,23 +105,44 @@ export default async function NeedsPage({
   if (queryQ) {
     query = query.or(`title.ilike.%${queryQ}%,specification.ilike.%${queryQ}%`);
   }
+
   if (categoryQ) {
-    query = query.eq("category_slug", categoryQ);
+    query = query.or(
+      `category_slug.eq.${categoryQ},category.eq.${categoryQ},category.ilike.%${categoryQ}%`
+    );
   }
+
   if (statusQ) {
     query = query.eq("status", statusQ);
   }
+
   if (countryQ) {
     query = query.eq("country", countryQ.toUpperCase());
   }
 
   const { data: needs, count } = await query.range(from, from + pageSize - 1);
 
+  // Resolve requester profiles safely
+  const requesterIds = [
+    ...new Set((needs ?? []).map((n) => n.requester_id).filter(Boolean)),
+  ] as string[];
+
+  const { data: requesterProfiles } = requesterIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, phone, country")
+        .in("id", requesterIds)
+    : { data: [] };
+
+  const requesterById = new Map(
+    (requesterProfiles ?? []).map((p) => [p.id, p])
+  );
+
   return (
     <div className="flex-1 space-y-6 p-6">
       <Header
         title="Needs Marketplace"
-        description="Monitor user needs requests across all 5 non-financial categories, competing offers, and reveals."
+        description="Monitor user needs requests across all categories, competing offers, and reveals."
         adminName={adminProfile?.full_name}
       />
 
@@ -127,14 +183,7 @@ export default async function NeedsPage({
               name: "category",
               label: "Category",
               type: "select",
-              options: [
-                { label: "All Categories", value: "" },
-                { label: "Travel & International", value: "travel_international" },
-                { label: "Machinery & Equipment", value: "machinery_equipment" },
-                { label: "Professional Services", value: "professional_services" },
-                { label: "Transport & Logistics", value: "transport_logistics" },
-                { label: "Specialized Products", value: "specialized_products" },
-              ],
+              options: categoryOptions,
             },
             {
               name: "status",
@@ -183,8 +232,10 @@ export default async function NeedsPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                needs.map((item: any) => {
-                  const requester = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+                needs.map((item) => {
+                  const requester = item.requester_id
+                    ? requesterById.get(item.requester_id)
+                    : null;
                   return (
                     <TableRow key={item.request_id}>
                       <TableCell className="max-w-[220px]">
@@ -198,22 +249,24 @@ export default async function NeedsPage({
                       </TableCell>
                       <TableCell>
                         {requester ? (
-                          <Link
-                            href={`/users/${requester.id}`}
-                            className="text-xs font-medium text-ink-900 hover:underline"
-                          >
-                            {requester.full_name || "User"}
-                          </Link>
+                          <>
+                            <Link
+                              href={`/users/${requester.id}`}
+                              className="text-xs font-medium text-ink-900 hover:underline"
+                            >
+                              {requester.full_name || "User"}
+                            </Link>
+                            <p className="text-[11px] text-ink-500">{requester.phone || ""}</p>
+                          </>
                         ) : (
-                          <span className="text-xs text-ink-400">Anonymous</span>
+                          <span className="text-xs text-ink-400">Public / Seeded</span>
                         )}
-                        <p className="text-[11px] text-ink-500">{requester?.phone || ""}</p>
                       </TableCell>
                       <TableCell className="text-xs font-medium capitalize">
                         {item.category || item.category_slug?.replace(/_/g, " ")}
                       </TableCell>
                       <TableCell className="text-xs font-semibold text-ink-900">
-                        {formatCurrency(item.budget, item.currency || "UGX")}
+                        {formatAmount(item.budget, item.currency || "UGX")}
                       </TableCell>
                       <TableCell className="text-xs text-ink-700">
                         {item.location ? `${item.location}, ` : ""}

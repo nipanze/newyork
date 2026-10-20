@@ -62,6 +62,8 @@ export default async function VerificationsPage({
   let roleRows: any[] = [];
   let totalCount = 0;
 
+  let profileIdsToFetch: string[] = [];
+
   if (activeTab === "evidence") {
     let query = supabase
       .from("provider_capability_evidence")
@@ -71,8 +73,7 @@ export default async function VerificationsPage({
         provider_type, reject_reason, expires_at, reviewed_at, created_at,
         provider_capabilities!inner (
           id, user_id, capability_slug,
-          need_capabilities ( name, category_slug ),
-          profiles ( id, full_name, phone, country )
+          need_capabilities ( name, category_slug )
         )
       `,
         { count: "exact" }
@@ -86,6 +87,12 @@ export default async function VerificationsPage({
     const { data, count } = await query.range(from, from + pageSize - 1);
     evidenceRows = data || [];
     totalCount = count || 0;
+
+    profileIdsToFetch = [
+      ...new Set(
+        evidenceRows.map((r) => r.provider_capabilities?.user_id).filter(Boolean)
+      ),
+    ];
   } else if (activeTab === "company") {
     let query = supabase
       .from("provider_company_verification_submissions")
@@ -93,7 +100,6 @@ export default async function VerificationsPage({
         `
         user_id, category_slug, document_type, file_path, status,
         reject_reason, reviewed_at, created_at,
-        profiles ( id, full_name, phone, country ),
         need_categories ( name, icon )
       `,
         { count: "exact" }
@@ -107,6 +113,10 @@ export default async function VerificationsPage({
     const { data, count } = await query.range(from, from + pageSize - 1);
     companyRows = data || [];
     totalCount = count || 0;
+
+    profileIdsToFetch = [
+      ...new Set(companyRows.map((r) => r.user_id).filter(Boolean)),
+    ];
   } else if (activeTab === "roles") {
     let query = supabase
       .from("provider_role_qualification_claims")
@@ -116,8 +126,7 @@ export default async function VerificationsPage({
         reject_reason, expires_at, reviewed_at, created_at,
         provider_capabilities!inner (
           id, user_id, capability_slug,
-          need_capabilities ( name ),
-          profiles ( id, full_name, phone, country )
+          need_capabilities ( name )
         )
       `,
         { count: "exact" }
@@ -131,7 +140,25 @@ export default async function VerificationsPage({
     const { data, count } = await query.range(from, from + pageSize - 1);
     roleRows = data || [];
     totalCount = count || 0;
+
+    profileIdsToFetch = [
+      ...new Set(
+        roleRows.map((r) => r.provider_capabilities?.user_id).filter(Boolean)
+      ),
+    ];
   }
+
+  // Resolve user profiles safely via IDs map
+  const { data: fetchedProfiles } = profileIdsToFetch.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, phone, country")
+        .in("id", profileIdsToFetch)
+    : { data: [] };
+
+  const profileById = new Map(
+    (fetchedProfiles ?? []).map((p) => [p.id, p])
+  );
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -270,20 +297,29 @@ export default async function VerificationsPage({
                   </TableRow>
                 ) : (
                   evidenceRows.map((row) => {
-                    const profile = row.provider_capabilities?.profiles;
+                    const userId = row.provider_capabilities?.user_id;
+                    const profile = userId ? profileById.get(userId) : null;
                     const capability = row.provider_capabilities?.need_capabilities;
                     return (
                       <TableRow key={row.id}>
                         <TableCell>
-                          <Link
-                            href={`/users/${profile?.id}`}
-                            className="font-medium text-ink-900 hover:underline"
-                          >
-                            {profile?.full_name || "Unnamed Provider"}
-                          </Link>
-                          <p className="text-xs text-ink-500">
-                            {profile?.phone || "No phone"} · {profile?.country}
-                          </p>
+                          {profile ? (
+                            <>
+                              <Link
+                                href={`/users/${profile.id}`}
+                                className="font-medium text-ink-900 hover:underline"
+                              >
+                                {profile.full_name || "Unnamed Provider"}
+                              </Link>
+                              <p className="text-xs text-ink-500">
+                                {profile.phone || "No phone"} · {profile.country}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-ink-500 font-mono">
+                              User: {userId ? userId.slice(0, 8) : "Unknown"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-ink-900">
@@ -365,20 +401,28 @@ export default async function VerificationsPage({
                   </TableRow>
                 ) : (
                   companyRows.map((row) => {
-                    const profile = row.profiles;
+                    const profile = row.user_id ? profileById.get(row.user_id) : null;
                     const category = row.need_categories;
                     return (
                       <TableRow key={`${row.user_id}-${row.category_slug}-${row.document_type}`}>
                         <TableCell>
-                          <Link
-                            href={`/users/${profile?.id}`}
-                            className="font-medium text-ink-900 hover:underline"
-                          >
-                            {profile?.full_name || "Company Provider"}
-                          </Link>
-                          <p className="text-xs text-ink-500">
-                            {profile?.phone || "No phone"} · {profile?.country}
-                          </p>
+                          {profile ? (
+                            <>
+                              <Link
+                                href={`/users/${profile.id}`}
+                                className="font-medium text-ink-900 hover:underline"
+                              >
+                                {profile.full_name || "Company Provider"}
+                              </Link>
+                              <p className="text-xs text-ink-500">
+                                {profile.phone || "No phone"} · {profile.country}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-ink-500 font-mono">
+                              User: {row.user_id ? row.user_id.slice(0, 8) : "Unknown"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-ink-900">
@@ -456,20 +500,29 @@ export default async function VerificationsPage({
                   </TableRow>
                 ) : (
                   roleRows.map((row) => {
-                    const profile = row.provider_capabilities?.profiles;
+                    const userId = row.provider_capabilities?.user_id;
+                    const profile = userId ? profileById.get(userId) : null;
                     const capability = row.provider_capabilities?.need_capabilities;
                     return (
                       <TableRow key={row.id}>
                         <TableCell>
-                          <Link
-                            href={`/users/${profile?.id}`}
-                            className="font-medium text-ink-900 hover:underline"
-                          >
-                            {profile?.full_name || "Provider"}
-                          </Link>
-                          <p className="text-xs text-ink-500">
-                            {profile?.phone || "No phone"} · {profile?.country}
-                          </p>
+                          {profile ? (
+                            <>
+                              <Link
+                                href={`/users/${profile.id}`}
+                                className="font-medium text-ink-900 hover:underline"
+                              >
+                                {profile.full_name || "Provider"}
+                              </Link>
+                              <p className="text-xs text-ink-500">
+                                {profile.phone || "No phone"} · {profile.country}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-xs text-ink-500 font-mono">
+                              User: {userId ? userId.slice(0, 8) : "Unknown"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-ink-900">
