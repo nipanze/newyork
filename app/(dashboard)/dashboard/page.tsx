@@ -17,6 +17,8 @@ import {
   UserX,
   Megaphone,
   Banknote,
+  Briefcase,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -132,6 +134,10 @@ export default async function DashboardOverviewPage({
     { data: subscriptions },
     { data: profile },
     { data: allCountriesRaw },
+    { count: activeNeedsCount },
+    { count: pendingEvidenceCount },
+    { count: pendingCompanyCount },
+    { count: totalCapabilitiesCount },
   ] = await Promise.all([
     totalAccountsQuery,
     activeAccountsQuery,
@@ -152,6 +158,10 @@ export default async function DashboardOverviewPage({
     supabase.from("subscriptions").select("plan, status").eq("status", "active"),
     supabase.from("profiles").select("full_name").eq("id", user!.id).single(),
     supabase.from("countries").select("code, name, is_active, forex_enabled").order("name"),
+    supabase.from("needs_requests").select("request_id", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("provider_capability_evidence").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("provider_company_verification_submissions").select("user_id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("provider_capabilities").select("user_id", { count: "exact", head: true }),
   ]);
 
   const forexRequests =
@@ -211,6 +221,7 @@ export default async function DashboardOverviewPage({
                 { label: "All modules", value: "" },
                 { label: "Loans", value: "loans" },
                 { label: "Forex", value: "forex" },
+                { label: "Needs & Providers", value: "needs" },
               ],
             },
             { name: "from", label: "From", type: "date" },
@@ -232,6 +243,15 @@ export default async function DashboardOverviewPage({
           />
           <StatCard label="KYC approved" value={approvedKycCount ?? 0} icon={ShieldCheck} tone="confirm" />
           <StatCard label="Active forex requests" value={forexRequests.count} icon={ArrowLeftRight} />
+          <StatCard label="Active needs requests" value={activeNeedsCount ?? 0} icon={Layers} tone="confirm" />
+          <StatCard
+            label="Pending verifications"
+            value={(pendingEvidenceCount ?? 0) + (pendingCompanyCount ?? 0)}
+            icon={BadgeCheck}
+            tone={(pendingEvidenceCount ?? 0) + (pendingCompanyCount ?? 0) > 0 ? "signal" : "neutral"}
+            hint={(pendingEvidenceCount ?? 0) + (pendingCompanyCount ?? 0) > 0 ? "Review evidence" : "All verified"}
+          />
+          <StatCard label="Total capabilities" value={totalCapabilitiesCount ?? 0} icon={Briefcase} />
           <StatCard label="Active markets" value={activeCountryCount ?? 0} icon={Globe2} />
           <StatCard label="Forex markets" value={forexCountryCount ?? 0} icon={Globe2} />
           <StatCard label="Active marketers" value={marketerStats.activeMarketers} icon={Megaphone} />

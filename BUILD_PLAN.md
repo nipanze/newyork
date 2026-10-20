@@ -583,3 +583,45 @@ The first milestone is complete when:
 - [x] Admin-only email access is handled safely.
 - [x] Account status/admin/plan changes are protected by `requireAdmin()`.
 - [x] Important admin actions write audit records or have a clear audit implementation path.
+
+---
+
+## 18. Milestone: Needs & Provider Services Control Implementation
+
+> **Implemented**: October 20, 2026  
+> **Source Spec & Builds**: `builds/README.md`, `builds/PROVIDER_FLOW_BUILD_ORDER.md`, `builds/v1/VERIFICATION_SPEC.md`, `builds/PROVIDER_TYPE_STEP_PROMPT.md`, `builds/v1/COMPANY_PATH_BUILD_PROMPT.md`, `builds/IDENTITY_SWITCH_BUILD_PROMPT.md`
+
+### 18.1 Admin Routes Implemented
+- `/verifications` — Unified Provider Verification Review Queue
+  - **Capability Evidence Tab**: Individual provider capability proof, requirement key, document viewer, approve / reject with reason / expire.
+  - **Company Documents Tab**: Company registration certificates & business licences review.
+  - **Role Claims Tab**: Role qualification claims review.
+- `/providers` — Service Provider Directory
+  - Filter by provider type (`individual` vs `company`), name, and country.
+  - Roster displaying active categories, company details, active & verified capabilities counts.
+- `/providers/[id]` — Comprehensive Provider Detail Page
+  - Category identities, active presentation mode (`personal`, `company`, `company_with_representative`), switch timestamp.
+  - Private company details (registration number, team size, years in business, service areas).
+  - Declared capabilities with verification level (`provider_verified` vs `self_declared`), `is_active` status, proof files and inline review actions.
+- `/needs` — Needs Marketplace Oversight
+  - Requests catalog across all 5 non-financial launch categories.
+  - Filter by search query, category slug, status, country.
+- `/needs/[id]` — Need Inspection & Moderation
+  - Need specifications, urgency, budget, location, and requester profile.
+  - Competing provider offers list: locked terms, price, timeline, message, offer status, identity type.
+  - Contact reveals table (who unlocked contacts and when).
+  - Admin moderation actions: Cancel / Moderate or Reactivate request.
+- `/settings/capabilities` — Capability Policies & Verification Matrix
+  - Full catalog of capabilities grouped by category.
+  - Inline policy editor: switch between `open`, `optional_proof`, and `required_proof`.
+  - Active verification requirements matrix display for individual vs company provider types.
+
+### 18.2 API Endpoints & Security
+- `PATCH /api/admin/verifications/capability/[id]` — Calls RPC `admin_review_provider_capability_evidence` with fallback and audit logging.
+- `PATCH /api/admin/verifications/company` — Calls RPC `admin_review_provider_company_verification` with audit logging.
+- `PATCH /api/admin/verifications/role/[id]` — Calls RPC `admin_review_provider_role_qualification` with audit logging.
+- `POST /api/admin/verifications/signed-url` — Generates signed URLs for secure admin preview of private storage files (`provider-evidence`, `company-documents`).
+- `PATCH /api/admin/needs/[id]` — Admin cancel / reactivate need request with audit logging.
+- `PATCH /api/admin/settings/capabilities/[slug]` — Toggle capability active status and update verification policy.
+- All endpoints strictly enforced by `requireAdmin()`.
+

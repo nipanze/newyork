@@ -13,12 +13,18 @@ import {
   Globe2,
   SlidersHorizontal,
   Megaphone,
+  Briefcase,
+  BadgeCheck,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/users", label: "Accounts", icon: Users },
+  { href: "/needs", label: "Needs", icon: Layers },
+  { href: "/providers", label: "Providers", icon: Briefcase },
+  { href: "/verifications", label: "Verifications", icon: BadgeCheck },
   { href: "/loans", label: "Loans", icon: HandCoins },
   { href: "/forex", label: "Forex", icon: ArrowLeftRight },
   { href: "/marketers", label: "Marketers", icon: Megaphone },

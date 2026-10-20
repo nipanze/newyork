@@ -12,6 +12,8 @@ export function formatAmount(amount: number | null | undefined, currencyCode: st
   return currencyCode ? `${currencyCode} ${formatted}` : formatted;
 }
 
+export const formatCurrency = formatAmount;
+
 export function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-GB", {

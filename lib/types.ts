@@ -27,6 +27,14 @@ export type ReferralPayoutStatus =
   | "cancelled";
 export type ReferralCampaignStatus = "draft" | "active" | "paused" | "ended" | "deactivated";
 
+export type VerificationPolicy = "open" | "optional_proof" | "required_proof";
+export type EvidenceStatus = "pending" | "approved" | "rejected" | "expired";
+export type CompanyDocStatus = "pending" | "approved" | "rejected";
+export type ProviderType = "individual" | "company" | "both";
+export type CapabilityType = "service" | "role";
+export type NeedRequestStatus = "active" | "matched" | "completed" | "expired" | "cancelled";
+export type NeedOfferStatus = "pending" | "accepted" | "rejected" | "withdrawn" | "expired";
+
 export type Profile = {
   id: string;
   full_name: string | null;
@@ -247,6 +255,175 @@ export type TrustProfilePublic = {
   phone_verified: boolean;
   response_time_bucket: string | null;
   is_verified: boolean;
+};
+
+export type NeedCategory = {
+  slug: string;
+  name: string;
+  icon: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type NeedCapability = {
+  slug: string;
+  category_slug: string;
+  name: string;
+  is_active: boolean;
+  verification_policy: VerificationPolicy;
+  capability_type?: CapabilityType;
+  created_at: string;
+};
+
+export type ProviderCapability = {
+  id: string;
+  user_id: string;
+  capability_slug: string;
+  verification_level: "self_declared" | "provider_verified";
+  is_active: boolean;
+  identity_type?: "individual" | "company" | null;
+  evidence_url?: string | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type ProviderCategoryProfile = {
+  user_id: string;
+  category_slug: string;
+  provider_type: "individual" | "company";
+  identity_changed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProviderCompanyProfile = {
+  user_id: string;
+  category_slug: string;
+  company_name: string | null;
+  registration_number: string | null;
+  team_size: "1-5" | "6-20" | "21-50" | "50+" | null;
+  years_in_business: "<1" | "1-2" | "3-5" | "6-10" | "10+" | null;
+  service_areas: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProviderIdentityPresentation = {
+  user_id: string;
+  category_slug: string;
+  identity_type: "individual" | "company";
+  display_mode: "personal" | "company" | "company_with_representative";
+  display_name: string | null;
+  representative_name: string | null;
+  status: "draft" | "active" | "inactive";
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProviderCapabilityEvidence = {
+  id: string;
+  provider_capability_id: string;
+  requirement_key: string;
+  file_url: string;
+  status: EvidenceStatus;
+  provider_type?: ProviderType;
+  reject_reason: string | null;
+  expires_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProviderCompanyVerificationSubmission = {
+  user_id: string;
+  category_slug: string;
+  document_type: "business_registration" | "business_licence";
+  file_path: string;
+  status: CompanyDocStatus;
+  reject_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProviderRoleQualificationClaim = {
+  id: string;
+  provider_capability_id: string;
+  claim_key: string;
+  evidence_url?: string | null;
+  status: EvidenceStatus;
+  reject_reason?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VerificationRequirement = {
+  id?: string;
+  scope_type: "capability" | "category";
+  scope_id: string;
+  provider_type: ProviderType;
+  identity_required: boolean;
+  phone_required: boolean;
+  provider_verification_required: boolean;
+  evidence_requirements: string[];
+  required_evidence: string[];
+  expires_after_days: number | null;
+  is_active: boolean;
+};
+
+export type NeedRequest = {
+  request_id: string;
+  title: string;
+  specification: string;
+  category: string;
+  category_slug?: string;
+  budget: number;
+  currency: string;
+  location: string;
+  country: string;
+  urgency: string;
+  status: NeedRequestStatus;
+  listed_at: string;
+  created_at: string;
+  trust_is_verified: boolean;
+};
+
+export type NeedOffer = {
+  id: string;
+  need_id: string;
+  offer_maker_id: string;
+  price: number;
+  currency: string;
+  timeline_text: string;
+  message: string;
+  terms_locked_at: string | null;
+  status: NeedOfferStatus;
+  offered_at: string;
+  accepted_at: string | null;
+  withdrawn_at: string | null;
+  expires_at: string | null;
+  provider_identity_type?: "individual" | "company" | null;
+  provider_display_name?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NeedContactReveal = {
+  id: string;
+  need_id: string;
+  offer_id: string;
+  requester_id: string;
+  provider_id: string;
+  unlocked_by: string;
+  unlocked_at: string;
 };
 
 export type Database = any;
