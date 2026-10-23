@@ -21,8 +21,15 @@ export const dynamic = "force-dynamic";
 const STATUS_VARIANT: Record<string, "confirm" | "signal" | "alert" | "neutral"> = {
   approved: "confirm",
   pending: "signal",
+  pending_review: "signal",
   rejected: "alert",
   expired: "neutral",
+  verified: "confirm",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending_review: "Pending review",
+  verified: "Verified",
 };
 
 export default async function VerificationsPage({
@@ -36,7 +43,13 @@ export default async function VerificationsPage({
   const pageSize = getPageSize(params);
 
   const activeTab = getParam(params, "tab") || "evidence";
-  const statusQ = getParam(params, "status") || "pending";
+  const statusQ = getParam(params, "status") || (activeTab === "roles" ? "pending_review" : "pending");
+  const statusForTab = (tab: string) => {
+    if (tab === "roles") {
+      return statusQ === "pending" ? "pending_review" : statusQ === "approved" ? "verified" : statusQ;
+    }
+    return statusQ === "pending_review" ? "pending" : statusQ === "verified" ? "approved" : statusQ;
+  };
   const from = (page - 1) * pageSize;
 
   const {
@@ -54,7 +67,7 @@ export default async function VerificationsPage({
     await Promise.all([
       supabase.from("provider_capability_evidence").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("provider_company_verification_submissions").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("provider_role_qualification_claims").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("provider_role_qualification_claims").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
     ]);
 
   let evidenceRows: any[] = [];
@@ -72,7 +85,7 @@ export default async function VerificationsPage({
         id, provider_capability_id, requirement_key, file_url, status,
         provider_type, reject_reason, expires_at, reviewed_at, created_at,
         provider_capabilities!inner (
-          id, user_id, capability_slug,
+          id, user_id, capability_slug, verification_level, identity_type,
           need_capabilities ( name, category_slug )
         )
       `,
@@ -122,10 +135,10 @@ export default async function VerificationsPage({
       .from("provider_role_qualification_claims")
       .select(
         `
-        id, provider_capability_id, claim_key, evidence_url, status,
+        id, provider_capability_id, role_slug, qualification_slug, evidence_object_path, status,
         reject_reason, expires_at, reviewed_at, created_at,
         provider_capabilities!inner (
-          id, user_id, capability_slug,
+          id, user_id, capability_slug, verification_level, identity_type,
           need_capabilities ( name )
         )
       `,
@@ -200,7 +213,7 @@ export default async function VerificationsPage({
           </Card>
         </Link>
 
-        <Link href="/verifications?tab=roles&status=pending">
+        <Link href="/verifications?tab=roles&status=pending_review">
           <Card className={`transition-colors hover:border-ink-400 ${activeTab === "roles" ? "border-ink-800" : ""}`}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -220,7 +233,7 @@ export default async function VerificationsPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-paper-300 pb-3">
         <div className="flex gap-2">
           <Link
-            href={`/verifications?tab=evidence&status=${statusQ}`}
+            href={`/verifications?tab=evidence&status=${statusForTab("evidence")}`}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "evidence"
                 ? "bg-ink-900 text-white"
@@ -230,7 +243,7 @@ export default async function VerificationsPage({
             Capability Evidence ({pendingEvidenceCount ?? 0})
           </Link>
           <Link
-            href={`/verifications?tab=company&status=${statusQ}`}
+            href={`/verifications?tab=company&status=${statusForTab("company")}`}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "company"
                 ? "bg-ink-900 text-white"
@@ -240,7 +253,7 @@ export default async function VerificationsPage({
             Company Docs ({pendingCompanyCount ?? 0})
           </Link>
           <Link
-            href={`/verifications?tab=roles&status=${statusQ}`}
+            href={`/verifications?tab=roles&status=${statusForTab("roles")}`}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === "roles"
                 ? "bg-ink-900 text-white"
@@ -260,11 +273,21 @@ export default async function VerificationsPage({
               label: "Status",
               type: "select",
               options: [
-                { label: "Pending", value: "pending" },
-                { label: "Approved", value: "approved" },
-                { label: "Rejected", value: "rejected" },
-                { label: "Expired", value: "expired" },
-                { label: "All Statuses", value: "all" },
+                ...(activeTab === "roles"
+                  ? [
+                      { label: "Pending review", value: "pending_review" },
+                      { label: "Verified", value: "verified" },
+                      { label: "Rejected", value: "rejected" },
+                      { label: "Expired", value: "expired" },
+                      { label: "All Statuses", value: "all" },
+                    ]
+                  : [
+                      { label: "Pending", value: "pending" },
+                      { label: "Approved", value: "approved" },
+                      { label: "Rejected", value: "rejected" },
+                      { label: "Expired", value: "expired" },
+                      { label: "All Statuses", value: "all" },
+                    ]),
               ],
             },
           ]}
@@ -283,6 +306,7 @@ export default async function VerificationsPage({
                   <TableHead>Type</TableHead>
                   <TableHead>Requirement</TableHead>
                   <TableHead>Document</TableHead>
+                  <TableHead>Badge issued</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="w-[280px]">Review</TableHead>
@@ -291,7 +315,7 @@ export default async function VerificationsPage({
               <TableBody>
                 {evidenceRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-sm text-ink-500">
+                    <TableCell colSpan={9} className="py-8 text-center text-sm text-ink-500">
                       No capability evidence found for this filter.
                     </TableCell>
                   </TableRow>
@@ -343,8 +367,17 @@ export default async function VerificationsPage({
                           />
                         </TableCell>
                         <TableCell>
+                          {row.provider_capabilities?.verification_level === "provider_verified" ? (
+                            <Badge variant="confirm" className="capitalize">
+                              {row.provider_capabilities.identity_type || row.provider_type || "Provider"} verified
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-ink-400">No badge</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={STATUS_VARIANT[row.status] || "neutral"} className="capitalize">
-                            {row.status}
+                            {STATUS_LABEL[row.status] || row.status}
                           </Badge>
                           {row.status === "rejected" && row.reject_reason && (
                             <p className="mt-1 text-[11px] text-clay-alert line-clamp-2" title={row.reject_reason}>
@@ -484,8 +517,9 @@ export default async function VerificationsPage({
                 <TableRow>
                   <TableHead>Provider</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Claim Key</TableHead>
+                  <TableHead>Qualification</TableHead>
                   <TableHead>Document</TableHead>
+                  <TableHead>Badge issued</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="w-[280px]">Review</TableHead>
@@ -494,7 +528,7 @@ export default async function VerificationsPage({
               <TableBody>
                 {roleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-sm text-ink-500">
+                    <TableCell colSpan={8} className="py-8 text-center text-sm text-ink-500">
                       No role qualification claims found for this filter.
                     </TableCell>
                   </TableRow>
@@ -530,25 +564,37 @@ export default async function VerificationsPage({
                           </span>
                         </TableCell>
                         <TableCell className="text-xs text-ink-700 font-mono">
-                          {row.claim_key}
+                          <span className="font-medium">{row.role_slug?.replace(/_/g, " ")}</span>
+                          <p className="text-[11px] text-ink-500">
+                            {row.qualification_slug?.replace(/_/g, " ")}
+                          </p>
                         </TableCell>
                         <TableCell>
                           <ProviderDocumentViewer
                             bucket="provider-evidence"
-                            filePath={row.evidence_url}
+                            filePath={row.evidence_object_path}
                             label="Claim Evidence"
                           />
                         </TableCell>
                         <TableCell>
+                          {row.provider_capabilities?.verification_level === "provider_verified" ? (
+                            <Badge variant="confirm" className="capitalize">
+                              {row.provider_capabilities.identity_type || "Provider"} verified
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-ink-400">No badge</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={STATUS_VARIANT[row.status] || "neutral"} className="capitalize">
-                            {row.status}
+                            {STATUS_LABEL[row.status] || row.status}
                           </Badge>
                           {row.status === "rejected" && row.reject_reason && (
                             <p className="mt-1 text-[11px] text-clay-alert line-clamp-2" title={row.reject_reason}>
                               {row.reject_reason}
                             </p>
                           )}
-                          {row.status === "approved" && row.expires_at && (
+                          {(row.status === "approved" || row.status === "verified") && row.expires_at && (
                             <p className="mt-1 text-[11px] text-ink-500">
                               Exp: {new Date(row.expires_at).toLocaleDateString()}
                             </p>

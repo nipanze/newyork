@@ -66,7 +66,8 @@ export default async function ProviderDetailPage({
       .select(`
         *,
         need_capabilities ( name, category_slug, verification_policy ),
-        provider_capability_evidence ( id, requirement_key, file_url, status, reject_reason, expires_at, created_at )
+        provider_capability_evidence ( id, requirement_key, file_url, status, reject_reason, expires_at, created_at ),
+        provider_role_qualification_claims ( id, role_slug, qualification_slug, evidence_object_path, status, reject_reason, expires_at, created_at )
       `)
       .eq("user_id", id),
     supabase
@@ -356,7 +357,6 @@ export default async function ProviderDetailPage({
                 </TableRow>
               ) : (
                 capabilities.map((cap) => {
-                  const ev = cap.provider_capability_evidence?.[0];
                   return (
                     <TableRow key={cap.id}>
                       <TableCell>
@@ -382,39 +382,89 @@ export default async function ProviderDetailPage({
                         <Badge
                           variant={cap.verification_level === "provider_verified" ? "confirm" : "neutral"}
                         >
-                          {cap.verification_level === "provider_verified" ? "Verified" : "Self-declared"}
+                          {cap.verification_level === "provider_verified"
+                            ? `${cap.identity_type || "Provider"} badge`
+                            : "Self-declared"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {ev ? (
-                          <div>
-                            <ProviderDocumentViewer
-                              bucket="provider-evidence"
-                              filePath={ev.file_url}
-                              label={ev.requirement_key}
-                            />
-                            <div className="mt-1">
-                              <Badge
-                                variant={ev.status === "approved" ? "confirm" : ev.status === "rejected" ? "alert" : "signal"}
-                                className="text-[10px] capitalize"
-                              >
-                                {ev.status}
-                              </Badge>
-                            </div>
+                        {cap.provider_capability_evidence?.length || cap.provider_role_qualification_claims?.length ? (
+                          <div className="space-y-3">
+                            {cap.provider_capability_evidence?.map((evidence: {
+                              id: string;
+                              requirement_key: string;
+                              file_url: string;
+                              status: string;
+                            }) => (
+                              <div key={evidence.id}>
+                                <ProviderDocumentViewer
+                                  bucket="provider-evidence"
+                                  filePath={evidence.file_url}
+                                  label={evidence.requirement_key}
+                                />
+                                <div className="mt-1">
+                                  <Badge
+                                    variant={evidence.status === "approved" ? "confirm" : evidence.status === "rejected" ? "alert" : "signal"}
+                                    className="text-[10px] capitalize"
+                                  >
+                                    {evidence.status}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                            {cap.provider_role_qualification_claims?.map((claim: {
+                              id: string;
+                              qualification_slug: string;
+                              evidence_object_path: string | null;
+                              status: string;
+                            }) => (
+                              <div key={claim.id}>
+                                <ProviderDocumentViewer
+                                  bucket="provider-evidence"
+                                  filePath={claim.evidence_object_path}
+                                  label={claim.qualification_slug.replace(/_/g, " ")}
+                                />
+                                <div className="mt-1">
+                                  <Badge
+                                    variant={claim.status === "verified" ? "confirm" : claim.status === "rejected" ? "alert" : "signal"}
+                                    className="text-[10px] capitalize"
+                                  >
+                                    {claim.status.replace(/_/g, " ")}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           <span className="text-xs text-ink-400">No proof submitted</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {ev ? (
-                          <ProviderReviewActions
-                            target={{ type: "capability", id: ev.id }}
-                            currentStatus={ev.status}
-                          />
-                        ) : (
-                          <span className="text-xs text-ink-400">—</span>
-                        )}
+                        <div className="space-y-3">
+                          {cap.provider_capability_evidence?.map((evidence: {
+                            id: string;
+                            status: string;
+                          }) => (
+                            <ProviderReviewActions
+                              key={evidence.id}
+                              target={{ type: "capability", id: evidence.id }}
+                              currentStatus={evidence.status}
+                            />
+                          ))}
+                          {cap.provider_role_qualification_claims?.map((claim: {
+                            id: string;
+                            status: string;
+                          }) => (
+                            <ProviderReviewActions
+                              key={claim.id}
+                              target={{ type: "role", id: claim.id }}
+                              currentStatus={claim.status}
+                            />
+                          ))}
+                          {!cap.provider_capability_evidence?.length && !cap.provider_role_qualification_claims?.length && (
+                            <span className="text-xs text-ink-400">—</span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -427,4 +477,3 @@ export default async function ProviderDetailPage({
     </div>
   );
 }
-

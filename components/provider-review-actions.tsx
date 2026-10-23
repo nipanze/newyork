@@ -24,6 +24,7 @@ export function ProviderReviewActions({
   const [showExpiry, setShowExpiry] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const isApproved = currentStatus === "approved" || currentStatus === "verified";
 
   async function submit(decision: "approve" | "reject" | "expire") {
     if (decision === "reject" && !reason.trim()) {
@@ -86,7 +87,7 @@ export function ProviderReviewActions({
         <Button
           size="sm"
           variant="confirm"
-          disabled={!!loading || currentStatus === "approved"}
+          disabled={!!loading || isApproved}
           onClick={() => submit("approve")}
         >
           {loading === "approve" ? "Approving…" : "Approve"}
@@ -173,4 +174,3 @@ export function ProviderReviewActions({
     </div>
   );
 }
-

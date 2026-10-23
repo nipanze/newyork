@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { error: updateError } = await supabaseAdmin
     .from("provider_role_qualification_claims")
     .update({
-      status: decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "expired",
+      status: decision === "approve" ? "verified" : decision === "reject" ? "rejected" : "expired",
       reject_reason: decision === "reject" ? rejection_reason?.trim() : null,
       expires_at: decision === "approve" ? expires_at ?? null : null,
       reviewed_by: admin.user.id,
@@ -69,4 +69,3 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({ success: true });
 }
-
