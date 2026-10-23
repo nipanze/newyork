@@ -802,9 +802,15 @@ begin
   from public.need_capabilities nc
   where nc.slug = new.capability_slug;
 
+  -- Work profiles are stored one role per provider_capabilities row by the
+  -- app (role_id + qualification_ids at the metadata root). Keep accepting
+  -- the older/multi-role `roles` array shape as well so existing clients and
+  -- rows can still be synchronized into individual claims.
   v_roles := case
     when jsonb_typeof(coalesce(new.metadata, '{}'::jsonb)->'roles') = 'array'
       then coalesce(new.metadata, '{}'::jsonb)->'roles'
+    when jsonb_typeof(coalesce(new.metadata, '{}'::jsonb)->'role_id') = 'string'
+      then jsonb_build_array(coalesce(new.metadata, '{}'::jsonb))
     else '[]'::jsonb
   end;
 
@@ -1006,6 +1012,36 @@ begin
       reviewed_at = now(),
       updated_at = now()
   where id = p_claim_id;
+
+  -- A reviewer approving evidence for this role completes the badge for its
+  -- parent capability. A rejection/expiry only clears that badge when no
+  -- other current approved evidence remains on the same capability.
+  if p_action = 'approve' then
+    update public.provider_capabilities
+    set verification_level = 'provider_verified',
+        verified_by = v_admin,
+        verified_at = now()
+    where id = v_claim.provider_capability_id;
+  elsif not exists (
+    select 1
+    from public.provider_role_qualification_claims claim
+    where claim.provider_capability_id = v_claim.provider_capability_id
+      and claim.is_claimed
+      and claim.status = 'verified'
+      and (claim.expires_at is null or claim.expires_at > now())
+  ) and not exists (
+    select 1
+    from public.provider_capability_evidence evidence
+    where evidence.provider_capability_id = v_claim.provider_capability_id
+      and evidence.status = 'approved'
+      and (evidence.expires_at is null or evidence.expires_at > now())
+  ) then
+    update public.provider_capabilities
+    set verification_level = 'self_declared',
+        verified_by = null,
+        verified_at = null
+    where id = v_claim.provider_capability_id;
+  end if;
 
   insert into public.audit_logs
     (user_id, event_type, entity_type, entity_id, action, new_values)

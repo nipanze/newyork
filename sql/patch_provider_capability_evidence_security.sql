@@ -187,21 +187,23 @@ begin
   end if;
 
   if p_action = 'approve' then
-    if cardinality(v_required) = 0 then
-      v_approved_count := 1; -- The authorized reviewer approved this capability's submitted evidence.
-    else
-      select count(distinct e.requirement_key) into v_approved_count
-        from public.provider_capability_evidence e
+    -- Admin approval completes the badge for this exact capability.
+    update public.provider_capabilities set verification_level = 'provider_verified',
+      verified_by = v_admin, verified_at = now()
+      where id = v_evidence.provider_capability_id;
+  elsif p_action in ('reject', 'expire')
+      and not exists (
+        select 1 from public.provider_capability_evidence e
         where e.provider_capability_id = v_evidence.provider_capability_id
-          and e.status = 'approved' and e.requirement_key = any(v_required)
-          and (e.expires_at is null or e.expires_at > now());
-    end if;
-    if v_approved_count = cardinality(v_required) or cardinality(v_required) = 0 then
-      update public.provider_capabilities set verification_level = 'provider_verified',
-        verified_by = v_admin, verified_at = now()
-        where id = v_evidence.provider_capability_id;
-    end if;
-  elsif p_action in ('reject', 'expire') then
+          and e.id <> p_evidence_id and e.status = 'approved'
+          and (e.expires_at is null or e.expires_at > now())
+      )
+      and not exists (
+        select 1 from public.provider_role_qualification_claims claim
+        where claim.provider_capability_id = v_evidence.provider_capability_id
+          and claim.status = 'verified'
+          and (claim.expires_at is null or claim.expires_at > now())
+      ) then
     update public.provider_capabilities set verification_level = 'self_declared',
       verified_by = null, verified_at = null where id = v_evidence.provider_capability_id;
   end if;
@@ -218,5 +220,100 @@ end;
 $$;
 revoke all on function public.admin_review_provider_capability_evidence(uuid, text, text, timestamptz) from public, anon;
 grant execute on function public.admin_review_provider_capability_evidence(uuid, text, text, timestamptz) to authenticated;
+
+-- Keep the capability badge synchronized with any current, administrator-
+-- approved proof attached to that capability, regardless of evidence type.
+create or replace function private.sync_provider_capability_badge_from_approved_evidence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, private, pg_temp
+as $$
+declare
+  v_reviewer uuid;
+  v_reviewed_at timestamptz;
+begin
+  if exists (
+    select 1
+    from public.provider_capability_evidence evidence
+    where evidence.provider_capability_id = new.provider_capability_id
+      and evidence.status = 'approved'
+      and (evidence.expires_at is null or evidence.expires_at > now())
+    union all
+    select 1
+    from public.provider_role_qualification_claims claim
+    where claim.provider_capability_id = new.provider_capability_id
+      and claim.is_claimed
+      and claim.status = 'verified'
+      and (claim.expires_at is null or claim.expires_at > now())
+  ) then
+    select approved.reviewer, approved.reviewed_at
+    into v_reviewer, v_reviewed_at
+    from (
+      select evidence.reviewed_by as reviewer, evidence.reviewed_at
+      from public.provider_capability_evidence evidence
+      where evidence.provider_capability_id = new.provider_capability_id
+        and evidence.status = 'approved'
+        and (evidence.expires_at is null or evidence.expires_at > now())
+      union all
+      select claim.reviewed_by as reviewer, claim.reviewed_at
+      from public.provider_role_qualification_claims claim
+      where claim.provider_capability_id = new.provider_capability_id
+        and claim.is_claimed
+        and claim.status = 'verified'
+        and (claim.expires_at is null or claim.expires_at > now())
+    ) approved
+    order by approved.reviewed_at desc nulls last
+    limit 1;
+
+    update public.provider_capabilities
+    set verification_level = 'provider_verified',
+        verified_by = coalesce(v_reviewer, new.reviewed_by, auth.uid()),
+        verified_at = coalesce(v_reviewed_at, new.reviewed_at, now())
+    where id = new.provider_capability_id;
+  else
+    update public.provider_capabilities
+    set verification_level = 'self_declared',
+        verified_by = null,
+        verified_at = null
+    where id = new.provider_capability_id
+      and verification_level = 'provider_verified';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_provider_capability_badge_from_approved_evidence
+  on public.provider_capability_evidence;
+create trigger trg_sync_provider_capability_badge_from_approved_evidence
+  after insert or update of status, expires_at
+  on public.provider_capability_evidence
+  for each row
+  execute function private.sync_provider_capability_badge_from_approved_evidence();
+
+-- Also complete badges for evidence approved before this patch is installed.
+with approvals as (
+  select evidence.provider_capability_id, evidence.reviewed_by, evidence.reviewed_at
+  from public.provider_capability_evidence evidence
+  where evidence.status = 'approved'
+    and (evidence.expires_at is null or evidence.expires_at > now())
+  union all
+  select claim.provider_capability_id, claim.reviewed_by, claim.reviewed_at
+  from public.provider_role_qualification_claims claim
+  where claim.is_claimed and claim.status = 'verified'
+    and (claim.expires_at is null or claim.expires_at > now())
+), latest_approval as (
+  select distinct on (provider_capability_id)
+    provider_capability_id, reviewed_by, reviewed_at
+  from approvals
+  order by provider_capability_id, reviewed_at desc nulls last
+)
+update public.provider_capabilities capability
+set verification_level = 'provider_verified',
+    verified_by = latest_approval.reviewed_by,
+    verified_at = coalesce(latest_approval.reviewed_at, now())
+from latest_approval
+where capability.id = latest_approval.provider_capability_id;
 
 commit;
