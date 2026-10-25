@@ -351,7 +351,7 @@ export default async function VerificationsPage({
                     const capability = row.provider_capabilities?.need_capabilities;
                     return (
                       <TableRow key={row.id}>
-                        <TableCell>
+                        <TableCell className="!py-2">
                           {profile ? (
                             <>
                               <Link
@@ -457,57 +457,56 @@ export default async function VerificationsPage({
                     const profile = userId ? profileById.get(userId) : null;
                     return (
                       <TableRow key={userId}>
-                        <TableCell>
+                        <TableCell className="!py-2">
                           {profile ? (
-                            <>
+                            <div className="flex flex-wrap items-baseline gap-x-2">
                               <Link
                                 href={`/users/${profile.id}`}
                                 className="font-medium text-ink-900 hover:underline"
                               >
                                 {profile.full_name || "Company Provider"}
                               </Link>
-                              <p className="text-xs text-ink-500">
+                              <span className="text-[11px] text-ink-500">
                                 {profile.phone || "No phone"} · {profile.country}
-                              </p>
-                            </>
+                              </span>
+                            </div>
                           ) : (
                             <span className="text-xs text-ink-500 font-mono">
                               User: {userId ? userId.slice(0, 8) : "Unknown"}
                             </span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="!py-2">
                           <details>
-                            <summary className="w-fit cursor-pointer list-none rounded-md border border-paper-300 px-3 py-2 text-sm font-medium text-ink-800 hover:bg-paper-100">
+                            <summary className="w-fit cursor-pointer list-none text-xs font-medium text-ink-700 hover:text-ink-950">
                               {documents.length} {documents.length === 1 ? "document" : "documents"}
-                              <span className="ml-2 text-xs text-ink-500">Show</span>
+                              <span className="ml-1 text-ink-400">▾</span>
                             </summary>
-                            <div className="mt-3 space-y-3">
+                            <div className="mt-2 divide-y divide-paper-200 border-t border-paper-200">
                               {documents.map((row) => {
                                 const category = Array.isArray(row.need_categories)
                                   ? row.need_categories[0]
                                   : row.need_categories;
                                 return (
-                                  <div key={row.id} className="rounded-md border border-paper-300 p-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div>
-                                        <p className="font-medium text-ink-900">
-                                          {category?.icon} {category?.name || row.category_slug}
-                                        </p>
-                                        <p className="text-xs capitalize text-ink-600">
-                                          {row.document_type.replace(/_/g, " ")}
-                                        </p>
-                                      </div>
-                                      <Badge variant={STATUS_VARIANT[row.status] || "neutral"} className="capitalize">
-                                        {row.status}
-                                      </Badge>
-                                    </div>
+                                  <div key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
+                                    <span className="min-w-40 text-xs font-medium text-ink-800">
+                                      {category?.icon} {category?.name || row.category_slug}
+                                    </span>
+                                    <span className="w-36 text-xs capitalize text-ink-600">
+                                      {row.document_type.replace(/_/g, " ")}
+                                    </span>
+                                    <Badge
+                                      variant={STATUS_VARIANT[row.status] || "neutral"}
+                                      className="px-2 py-0 text-[11px] capitalize"
+                                    >
+                                      {row.status}
+                                    </Badge>
                                     {row.status === "rejected" && row.reject_reason && (
-                                      <p className="mt-2 text-xs text-clay-alert" title={row.reject_reason}>
+                                      <span className="max-w-48 truncate text-[11px] text-clay-alert" title={row.reject_reason}>
                                         {row.reject_reason}
-                                      </p>
+                                      </span>
                                     )}
-                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
                                       <ProviderDocumentViewer
                                         bucket="provider-evidence"
                                         filePath={row.file_path}
@@ -517,16 +516,14 @@ export default async function VerificationsPage({
                                             ? "Licence"
                                             : "View Document"}
                                       />
-                                      <span className="text-xs text-ink-500">
-                                        Submitted {formatDateTime(row.created_at)}
+                                      <span className="whitespace-nowrap text-[11px] text-ink-500">
+                                        {formatDateTime(row.created_at)}
                                       </span>
                                     </div>
-                                    <div className="mt-3 border-t border-paper-200 pt-3">
-                                      <ProviderReviewActions
-                                        target={{ type: "company", submissionId: row.id }}
-                                        currentStatus={row.status}
-                                      />
-                                    </div>
+                                    <ProviderReviewActions
+                                      target={{ type: "company", submissionId: row.id }}
+                                      currentStatus={row.status}
+                                    />
                                   </div>
                                 );
                               })}
