@@ -279,7 +279,7 @@ export default async function ProviderDetailPage({
               </TableHeader>
               <TableBody>
                 {companySubmissions.map((sub) => (
-                  <TableRow key={`${sub.category_slug}-${sub.document_type}`}>
+                  <TableRow key={sub.id}>
                     <TableCell className="font-medium text-ink-900">
                       {sub.need_categories?.icon} {sub.need_categories?.name || sub.category_slug}
                     </TableCell>
@@ -288,7 +288,7 @@ export default async function ProviderDetailPage({
                     </TableCell>
                     <TableCell>
                       <ProviderDocumentViewer
-                        bucket="company-documents"
+                        bucket="provider-evidence"
                         filePath={sub.file_path}
                         label="View Document"
                       />
@@ -313,9 +313,7 @@ export default async function ProviderDetailPage({
                       <ProviderReviewActions
                         target={{
                           type: "company",
-                          userId: sub.user_id,
-                          categorySlug: sub.category_slug,
-                          documentType: sub.document_type,
+                          submissionId: sub.id,
                         }}
                         currentStatus={sub.status}
                       />

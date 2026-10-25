@@ -111,7 +111,7 @@ export default async function VerificationsPage({
       .from("provider_company_verification_submissions")
       .select(
         `
-        user_id, category_slug, document_type, file_path, status,
+        id, user_id, category_slug, document_type, file_path, status,
         reject_reason, reviewed_at, created_at,
         need_categories ( name, icon )
       `,
@@ -437,7 +437,7 @@ export default async function VerificationsPage({
                     const profile = row.user_id ? profileById.get(row.user_id) : null;
                     const category = row.need_categories;
                     return (
-                      <TableRow key={`${row.user_id}-${row.category_slug}-${row.document_type}`}>
+                      <TableRow key={row.id}>
                         <TableCell>
                           {profile ? (
                             <>
@@ -469,7 +469,7 @@ export default async function VerificationsPage({
                         </TableCell>
                         <TableCell>
                           <ProviderDocumentViewer
-                            bucket="company-documents"
+                            bucket="provider-evidence"
                             filePath={row.file_path}
                             label={row.document_type === "business_registration" ? "Reg Cert" : "Licence"}
                           />
@@ -491,9 +491,7 @@ export default async function VerificationsPage({
                           <ProviderReviewActions
                             target={{
                               type: "company",
-                              userId: row.user_id,
-                              categorySlug: row.category_slug,
-                              documentType: row.document_type,
+                              submissionId: row.id,
                             }}
                             currentStatus={row.status}
                           />

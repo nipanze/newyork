@@ -9,7 +9,7 @@ export function ProviderDocumentViewer({
   filePath,
   label = "Document",
 }: {
-  bucket: "provider-evidence" | "company-documents" | "verification-documents";
+  bucket: "provider-evidence" | "verification-documents";
   filePath: string | null;
   label?: string;
 }) {
@@ -134,4 +134,3 @@ export function ProviderDocumentViewer({
     </div>
   );
 }
-

@@ -210,6 +210,7 @@ declare
   v_country text;
   v_enabled text;
   v_existing_status text;
+  v_is_update boolean := false;
 begin
   if v_user is null then
     raise exception 'Not authenticated' using errcode = '42501';
@@ -269,6 +270,25 @@ begin
       using errcode = 'P0205';
   end if;
 
+  if v_submission_id is null then
+    perform 1
+    from public.profiles
+    where id = v_user
+    for update;
+
+    select id into v_submission_id
+    from public.provider_company_verification_submissions
+    where user_id = v_user
+      and category_slug = p_category_slug
+      and document_type = p_document_type
+    order by updated_at desc, created_at desc, id desc
+    limit 1
+    for update;
+    v_is_update := found;
+  else
+    v_is_update := true;
+  end if;
+
   if v_submission_id is not null then
     select status into v_existing_status
     from public.provider_company_verification_submissions
@@ -287,6 +307,7 @@ begin
         reject_reason = null,
         reviewed_by = null,
         reviewed_at = null,
+        created_at = now(),
         updated_at = now()
     where id = v_submission_id;
   else
@@ -304,8 +325,8 @@ begin
     user_id, event_type, entity_type, action, new_values
   ) values (
     v_user, 'admin_action', 'provider_company_verification',
-    case when p_submission_id is null then 'submit_company_document'
-      else 'replace_company_document' end,
+    case when v_is_update then 'replace_company_document'
+      else 'submit_company_document' end,
     jsonb_build_object(
       'submission_id', v_submission_id,
       'category_slug', p_category_slug,

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   // Allowed verification buckets
-  const allowedBuckets = ["provider-evidence", "company-documents", "verification-documents"];
+  const allowedBuckets = ["provider-evidence", "verification-documents"];
   if (!allowedBuckets.includes(bucket)) {
     return NextResponse.json({ error: "Unauthorized bucket access" }, { status: 403 });
   }
@@ -30,4 +30,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ signedUrl: data.signedUrl });
 }
-

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 
 type TargetType =
   | { type: "capability"; id: string }
-  | { type: "company"; userId: string; categorySlug: string; documentType: string }
+  | { type: "company"; submissionId: string }
   | { type: "role"; id: string };
 
 export function ProviderReviewActions({
@@ -50,9 +50,7 @@ export function ProviderReviewActions({
       }
     } else if (target.type === "company") {
       url = `/api/admin/verifications/company`;
-      body.user_id = target.userId;
-      body.category_slug = target.categorySlug;
-      body.document_type = target.documentType;
+      body.submission_id = target.submissionId;
     } else if (target.type === "role") {
       url = `/api/admin/verifications/role/${target.id}`;
       if (decision === "approve" && expiresAt) {
