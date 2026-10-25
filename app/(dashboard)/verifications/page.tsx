@@ -32,6 +32,21 @@ const STATUS_LABEL: Record<string, string> = {
   verified: "Verified",
 };
 
+type CompanyVerificationRow = {
+  id: string;
+  user_id: string;
+  category_slug: string;
+  document_type: string;
+  file_path: string | null;
+  status: string;
+  reject_reason: string | null;
+  created_at: string;
+  need_categories:
+    | { name: string; icon: string | null }
+    | { name: string; icon: string | null }[]
+    | null;
+};
+
 export default async function VerificationsPage({
   searchParams,
 }: {
@@ -71,7 +86,7 @@ export default async function VerificationsPage({
     ]);
 
   let evidenceRows: any[] = [];
-  let companyRows: any[] = [];
+  let companyRows: CompanyVerificationRow[] = [];
   let roleRows: any[] = [];
   let totalCount = 0;
 
@@ -172,6 +187,16 @@ export default async function VerificationsPage({
   const profileById = new Map(
     (fetchedProfiles ?? []).map((p) => [p.id, p])
   );
+  const companyGroups = [...companyRows.reduce((groups, row) => {
+    const key = row.user_id || row.id;
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+    return groups;
+  }, new Map<string, typeof companyRows>())].map(([userId, documents]) => ({
+    userId,
+    documents,
+  }));
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -417,27 +442,21 @@ export default async function VerificationsPage({
               <TableHeader>
                 <TableRow>
                   <TableHead>Company / User</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Document Type</TableHead>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="w-[280px]">Review</TableHead>
+                  <TableHead>Documents</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {companyRows.length === 0 ? (
+                {companyGroups.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-sm text-ink-500">
+                    <TableCell colSpan={2} className="py-8 text-center text-sm text-ink-500">
                       No company verification submissions found for this filter.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  companyRows.map((row) => {
-                    const profile = row.user_id ? profileById.get(row.user_id) : null;
-                    const category = row.need_categories;
+                  companyGroups.map(({ userId, documents }) => {
+                    const profile = userId ? profileById.get(userId) : null;
                     return (
-                      <TableRow key={row.id}>
+                      <TableRow key={userId}>
                         <TableCell>
                           {profile ? (
                             <>
@@ -453,48 +472,66 @@ export default async function VerificationsPage({
                             </>
                           ) : (
                             <span className="text-xs text-ink-500 font-mono">
-                              User: {row.user_id ? row.user_id.slice(0, 8) : "Unknown"}
+                              User: {userId ? userId.slice(0, 8) : "Unknown"}
                             </span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium text-ink-900">
-                            {category?.icon} {category?.name || row.category_slug}
-                          </span>
-                        </TableCell>
-                        <TableCell className="capitalize text-xs text-ink-700">
-                          {row.document_type === "business_registration"
-                            ? "Registration Certificate"
-                            : "Business Licence"}
-                        </TableCell>
-                        <TableCell>
-                          <ProviderDocumentViewer
-                            bucket="provider-evidence"
-                            filePath={row.file_path}
-                            label={row.document_type === "business_registration" ? "Reg Cert" : "Licence"}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={STATUS_VARIANT[row.status] || "neutral"} className="capitalize">
-                            {row.status}
-                          </Badge>
-                          {row.status === "rejected" && row.reject_reason && (
-                            <p className="mt-1 text-[11px] text-clay-alert line-clamp-2" title={row.reject_reason}>
-                              {row.reject_reason}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-ink-500">
-                          {formatDateTime(row.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <ProviderReviewActions
-                            target={{
-                              type: "company",
-                              submissionId: row.id,
-                            }}
-                            currentStatus={row.status}
-                          />
+                          <details>
+                            <summary className="w-fit cursor-pointer list-none rounded-md border border-paper-300 px-3 py-2 text-sm font-medium text-ink-800 hover:bg-paper-100">
+                              {documents.length} {documents.length === 1 ? "document" : "documents"}
+                              <span className="ml-2 text-xs text-ink-500">Show</span>
+                            </summary>
+                            <div className="mt-3 space-y-3">
+                              {documents.map((row) => {
+                                const category = Array.isArray(row.need_categories)
+                                  ? row.need_categories[0]
+                                  : row.need_categories;
+                                return (
+                                  <div key={row.id} className="rounded-md border border-paper-300 p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <p className="font-medium text-ink-900">
+                                          {category?.icon} {category?.name || row.category_slug}
+                                        </p>
+                                        <p className="text-xs capitalize text-ink-600">
+                                          {row.document_type.replace(/_/g, " ")}
+                                        </p>
+                                      </div>
+                                      <Badge variant={STATUS_VARIANT[row.status] || "neutral"} className="capitalize">
+                                        {row.status}
+                                      </Badge>
+                                    </div>
+                                    {row.status === "rejected" && row.reject_reason && (
+                                      <p className="mt-2 text-xs text-clay-alert" title={row.reject_reason}>
+                                        {row.reject_reason}
+                                      </p>
+                                    )}
+                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                      <ProviderDocumentViewer
+                                        bucket="provider-evidence"
+                                        filePath={row.file_path}
+                                        label={row.document_type === "business_registration"
+                                          ? "Reg Cert"
+                                          : row.document_type === "business_licence"
+                                            ? "Licence"
+                                            : "View Document"}
+                                      />
+                                      <span className="text-xs text-ink-500">
+                                        Submitted {formatDateTime(row.created_at)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 border-t border-paper-200 pt-3">
+                                      <ProviderReviewActions
+                                        target={{ type: "company", submissionId: row.id }}
+                                        currentStatus={row.status}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
                         </TableCell>
                       </TableRow>
                     );
