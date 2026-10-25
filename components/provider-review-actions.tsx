@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,6 +18,8 @@ export function ProviderReviewActions({
   currentStatus?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState<"approve" | "reject" | "expire" | null>(null);
   const [reason, setReason] = useState("");
   const [showReject, setShowReject] = useState(false);
@@ -74,6 +76,12 @@ export function ProviderReviewActions({
 
       setShowReject(false);
       setShowExpiry(false);
+      if (pathname === "/verifications") {
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.set("status", "all");
+        nextParams.set("page", "1");
+        router.replace(`${pathname}?${nextParams.toString()}`);
+      }
       router.refresh();
     } catch (e: any) {
       setLoading(null);

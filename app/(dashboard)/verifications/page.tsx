@@ -43,7 +43,7 @@ export default async function VerificationsPage({
   const pageSize = getPageSize(params);
 
   const activeTab = getParam(params, "tab") || "evidence";
-  const statusQ = getParam(params, "status") || (activeTab === "roles" ? "pending_review" : "pending");
+  const statusQ = getParam(params, "status") || "all";
   const statusForTab = (tab: string) => {
     if (tab === "roles") {
       return statusQ === "pending" ? "pending_review" : statusQ === "approved" ? "verified" : statusQ;
@@ -275,18 +275,18 @@ export default async function VerificationsPage({
               options: [
                 ...(activeTab === "roles"
                   ? [
+                      { label: "All Statuses", value: "all" },
                       { label: "Pending review", value: "pending_review" },
                       { label: "Verified", value: "verified" },
                       { label: "Rejected", value: "rejected" },
                       { label: "Expired", value: "expired" },
-                      { label: "All Statuses", value: "all" },
                     ]
                   : [
+                      { label: "All Statuses", value: "all" },
                       { label: "Pending", value: "pending" },
                       { label: "Approved", value: "approved" },
                       { label: "Rejected", value: "rejected" },
                       { label: "Expired", value: "expired" },
-                      { label: "All Statuses", value: "all" },
                     ]),
               ],
             },
